@@ -10,73 +10,73 @@ let supabaseClient = null;
 // CONFIGURAÇÃO DOS OVOS (HARDCODED)
 // ==========================================
 const configOvos = {
-    comum: {
-        id: 'comum',
-        nome: 'Ovo Comum',
-        emoji: '🥚',
-        cor: '#8B4513',
-        quantidadeTotal: 50,
-        pontos: 5,
-        limitePorUsuario: Infinity,
-        descricao: 'Ovos espalhados por toda a companhia. Fáceis de encontrar em páginas ou quartos comuns.',
-        chancePremio: 0
-    },
-    incomum: {
-        id: 'incomum',
-        nome: 'Ovo Incomum',
-        emoji: '🥚',
-        cor: '#22c55e',
-        quantidadeTotal: 25,
-        pontos: 10,
-        limitePorUsuario: 10,
-        descricao: 'Ovos escondidos em locais que requerem mais atenção. Valor médio de recompensa.',
-        chancePremio: 0
-    },
-    raro: {
-        id: 'raro',
-        nome: 'Ovo Raro',
-        emoji: '🥚',
-        cor: '#3b82f6',
-        quantidadeTotal: 15,
-        pontos: 30,
-        limitePorUsuario: 5,
-        descricao: 'Ovos bem escondidos. Requer dedicação para encontrar. Boas recompensas!',
-        chancePremio: 0.1
-    },
-    epico: {
-        id: 'epico',
-        nome: 'Ovo Épico',
-        emoji: '🥚',
-        cor: '#a855f7',
-        quantidadeTotal: 7,
-        pontos: 50,
-        limitePorUsuario: 1,
-        descricao: 'Ovos extremamente raros! Grande chance de ganhar prêmios épicos.',
-        chancePremio: 0.4
-    },
-    lendario: {
-        id: 'lendario',
-        nome: 'Ovo Lendário',
-        emoji: '🥚',
-        cor: '#f59e0b',
-        quantidadeTotal: 3,
-        pontos: 100,
-        limitePorUsuario: 1,
-        descricao: 'Ovos quase impossíveis de encontrar! Alta chance de prêmios lendários.',
-        chancePremio: 0.6
-    },
-    coelhao: {
-        id: 'coelhao',
-        nome: 'Coelhão',
-        emoji: '🐰',
-        cor: 'gradient',
-        quantidadeTotal: 1,
-        pontos: 500,
-        limitePorUsuario: 1,
-        descricao: 'O GRANDE PRÊMIO! Existe apenas UM na companhia inteira. Prêmio único garantido!',
-        premioGarantido: true,
-        chancePremio: 1
-    }
+  comum: {
+    id: 'comum',
+    nome: 'Ovo Comum',
+    emoji: '🥚',
+    cor: '#8B4513',
+    quantidadeTotal: 50,
+    pontos: 5,
+    limitePorUsuario: Infinity,
+    descricao: 'Ovos espalhados por toda a companhia. Fáceis de encontrar em páginas ou quartos comuns.',
+    chancePremio: 0
+  },
+  incomum: {
+    id: 'incomum',
+    nome: 'Ovo Incomum',
+    emoji: '🥚',
+    cor: '#22c55e',
+    quantidadeTotal: 25,
+    pontos: 10,
+    limitePorUsuario: 10,
+    descricao: 'Ovos escondidos em locais que requerem mais atenção. Valor médio de recompensa.',
+    chancePremio: 0
+  },
+  raro: {
+    id: 'raro',
+    nome: 'Ovo Raro',
+    emoji: '🥚',
+    cor: '#3b82f6',
+    quantidadeTotal: 15,
+    pontos: 30,
+    limitePorUsuario: 5,
+    descricao: 'Ovos bem escondidos. Requer dedicação para encontrar. Boas recompensas!',
+    chancePremio: 0.1
+  },
+  epico: {
+    id: 'epico',
+    nome: 'Ovo Épico',
+    emoji: '🥚',
+    cor: '#a855f7',
+    quantidadeTotal: 7,
+    pontos: 50,
+    limitePorUsuario: 1,
+    descricao: 'Ovos extremamente raros! Grande chance de ganhar prêmios épicos.',
+    chancePremio: 0.4
+  },
+  lendario: {
+    id: 'lendario',
+    nome: 'Ovo Lendário',
+    emoji: '🥚',
+    cor: '#f59e0b',
+    quantidadeTotal: 3,
+    pontos: 100,
+    limitePorUsuario: 1,
+    descricao: 'Ovos quase impossíveis de encontrar! Alta chance de prêmios lendários.',
+    chancePremio: 0.6
+  },
+  coelhao: {
+    id: 'coelhao',
+    nome: 'Coelhão',
+    emoji: '🐰',
+    cor: 'gradient',
+    quantidadeTotal: 1,
+    pontos: 500,
+    limitePorUsuario: 1,
+    descricao: 'O GRANDE PRÊMIO! Existe apenas UM na companhia inteira. Prêmio único garantido!',
+    premioGarantido: true,
+    chancePremio: 1
+  }
 };
 
 // ==========================================
@@ -91,11 +91,11 @@ let resgatePendente = null;
 let tipoRankingAtual = 'pontos';
 let abaAdminAtiva = 'resgates';
 let catalogoPremios = {
-    comum: [],
-    incomum: [],
-    raro: [],
-    epico: [],
-    lendario: []
+  comum: [],
+  incomum: [],
+  raro: [],
+  epico: [],
+  lendario: []
 };
 let codigosStats = {};
 
@@ -103,143 +103,143 @@ let codigosStats = {};
 // INICIALIZAÇÃO
 // ==========================================
 function initSupabase() {
-    if (window.supabase) {
-        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    }
+  if (window.supabase) {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  }
 }
 
 // ==========================================
 // AUTENTICAÇÃO E USUÁRIO
 // ==========================================
 async function pegarUsernameForum() {
-    try {
-        const resposta = await fetch("/forum");
-        const html = await resposta.text();
-        const regex = /_userdata\["username"\]\s*=\s*"([^"]+)"/;
-        const match = html.match(regex);
-        
-        if (match && match[1]) {
-            const username = match[1].trim();
-            localStorage.setItem("forumUser", username);
-            return username;
-        }
-        throw new Error('Não autenticado no fórum');
-    } catch (err) {
-        const fallback = localStorage.getItem("forumUser");
-        if (fallback) return fallback;
-        throw err;
+  try {
+    const resposta = await fetch("/forum");
+    const html = await resposta.text();
+    const regex = /_userdata\["username"\]\s*=\s*"([^"]+)"/;
+    const match = html.match(regex);
+
+    if (match && match[1]) {
+      const username = match[1].trim();
+      localStorage.setItem("forumUser", username);
+      return username;
     }
+    throw new Error('Não autenticado no fórum');
+  } catch (err) {
+    const fallback = localStorage.getItem("forumUser");
+    if (fallback) return fallback;
+    throw err;
+  }
 }
 
 async function inicializarUsuario() {
-    try {
-        const forumName = await pegarUsernameForum();
-        
-        // Buscar membros da planilha
-        const response = await fetch('https://script.google.com/macros/s/AKfycbzhJdbeZfxkHgh3cQrK_YlhBCuhZyLhM_9jYkAnCPmbz-aYpv7845740KySuhjTzdIb/exec');
-        const data = await response.json();
-        
-        membros = data.filter(m => !CARGOS_IGNORADOS.includes(m.cargo.toLowerCase()));
-        
-        const membro = membros.find(m => m.nick === forumName);
-        if (!membro) {
-            mostrarErroLogin('Você não é membro autorizado desta companhia.');
-            return false;
-        }
+  try {
+    const forumName = await pegarUsernameForum();
 
-        // Buscar ou criar no Supabase
-        let { data: userData } = await supabaseClient
-            .from('usuarios')
-            .select('*')
-            .eq('forum_name', forumName)
-            .single();
+    // Buscar membros da planilha
+    const response = await fetch('https://script.google.com/macros/s/AKfycbzhJdbeZfxkHgh3cQrK_YlhBCuhZyLhM_9jYkAnCPmbz-aYpv7845740KySuhjTzdIb/exec');
+    const data = await response.json();
 
-        if (!userData) {
-            // Criar novo usuário - ???JUKA vira admin automaticamente
-            const { data: newUser } = await supabaseClient
-                .from('usuarios')
-                .insert([{
-                    forum_name: forumName,
-                    habbo_name: forumName,
-                    pontos: 0,
-                    grupo_permissao: forumName === '???JUKA' ? 'admin' : 'usuario',
-                    ovos_resgatados: { comum: 0, incomum: 0, raro: 0, epico: 0, lendario: 0, coelhao: 0 }
-                }])
-                .select()
-                .single();
-            userData = newUser;
-        }
+    membros = data.filter(m => !CARGOS_IGNORADOS.includes(m.cargo.toLowerCase()));
 
-        usuarioAtual = {
-            id: userData.id,
-            forumName: userData.forum_name,
-            habboName: userData.habbo_name,
-            nome: userData.habbo_name,
-            cargo: membro.cargo,
-            cargoOriginal: membro.cargoOriginal || membro.cargo,
-            pontos: userData.pontos || 0,
-            ovosResgatados: userData.ovos_resgatados || {},
-            historico: [],
-            premiosGanhos: [],
-            grupoPermissao: userData.grupo_permissao || 'usuario'
-        };
-
-        // Atualizar UI com dados do usuário
-        atualizarUIUsuario();
-        
-        // Carregar dados
-        await carregarPremios();
-        await carregarResgates();
-        await carregarCodigosStats();
-        
-        // Renderizar conteúdo inicial
-        renderizarGuiaOvos();
-        renderizarPremios();
-        atualizarStats();
-        renderizarMeusResgates();
-        
-        // Mostrar seção admin se for admin
-        if (isAdmin()) {
-            document.getElementById('adminNavSection').style.display = 'block';
-        }
-        
-        return true;
-        
-    } catch (err) {
-        console.error(err);
-        mostrarErroLogin('Erro de autenticação: ' + err.message);
-        return false;
+    const membro = membros.find(m => m.nick === forumName);
+    if (!membro) {
+      mostrarErroLogin('Você não é membro autorizado desta companhia.');
+      return false;
     }
+
+    // Buscar ou criar no Supabase
+    let { data: userData } = await supabaseClient
+      .from('usuarios')
+      .select('*')
+      .eq('forum_name', forumName)
+      .single();
+
+    if (!userData) {
+      // Criar novo usuário - ???JUKA vira admin automaticamente
+      const { data: newUser } = await supabaseClient
+        .from('usuarios')
+        .insert([{
+          forum_name: forumName,
+          habbo_name: forumName,
+          pontos: 0,
+          grupo_permissao: forumName === '???JUKA' ? 'admin' : 'usuario',
+          ovos_resgatados: { comum: 0, incomum: 0, raro: 0, epico: 0, lendario: 0, coelhao: 0 }
+        }])
+        .select()
+        .single();
+      userData = newUser;
+    }
+
+    usuarioAtual = {
+      id: userData.id,
+      forumName: userData.forum_name,
+      habboName: userData.habbo_name,
+      nome: userData.habbo_name,
+      cargo: membro.cargo,
+      cargoOriginal: membro.cargoOriginal || membro.cargo,
+      pontos: userData.pontos || 0,
+      ovosResgatados: userData.ovos_resgatados || {},
+      historico: [],
+      premiosGanhos: [],
+      grupoPermissao: userData.grupo_permissao || 'usuario'
+    };
+
+    // Atualizar UI com dados do usuário
+    atualizarUIUsuario();
+
+    // Carregar dados
+    await carregarPremios();
+    await carregarResgates();
+    await carregarCodigosStats();
+
+    // Renderizar conteúdo inicial
+    renderizarGuiaOvos();
+    renderizarPremios();
+    atualizarStats();
+    renderizarMeusResgates();
+
+    // Mostrar seção admin se for admin
+    if (isAdmin()) {
+      document.getElementById('adminNavSection').style.display = 'block';
+    }
+
+    return true;
+
+  } catch (err) {
+    console.error(err);
+    mostrarErroLogin('Erro de autenticação: ' + err.message);
+    return false;
+  }
 }
 
 function atualizarUIUsuario() {
-    if (!usuarioAtual) return;
-    
-    // User badge (desktop)
-    const userBadge = document.getElementById('userBadge');
-    const userAvatar = document.getElementById('userAvatar');
-    const userName = document.getElementById('userName');
-    const userRole = document.getElementById('userRole');
-    
-    if (userBadge) userBadge.style.display = 'flex';
-    if (userAvatar) userAvatar.innerHTML = getAvatarHeadHtml(usuarioAtual.habboName, '48px');
-    if (userName) userName.textContent = usuarioAtual.habboName;
-    if (userRole) userRole.textContent = usuarioAtual.cargoOriginal || usuarioAtual.cargo;
-    
-    // Mobile profile
-    const mobileProfile = document.getElementById('mobileProfile');
-    const mobileAvatar = document.getElementById('mobileProfileAvatar');
-    const mobileName = document.getElementById('mobileUserName');
-    const mobileRole = document.getElementById('mobileUserRole');
-    
-    if (mobileProfile) mobileProfile.style.display = 'block';
-    if (mobileAvatar) mobileAvatar.innerHTML = getAvatarHeadHtml(usuarioAtual.habboName, '56px');
-    if (mobileName) mobileName.textContent = usuarioAtual.habboName;
-    if (mobileRole) mobileRole.textContent = usuarioAtual.cargoOriginal || usuarioAtual.cargo;
+  if (!usuarioAtual) return;
+
+  // User badge (desktop)
+  const userBadge = document.getElementById('userBadge');
+  const userAvatar = document.getElementById('userAvatar');
+  const userName = document.getElementById('userName');
+  const userRole = document.getElementById('userRole');
+
+  if (userBadge) userBadge.style.display = 'flex';
+  if (userAvatar) userAvatar.innerHTML = getAvatarHeadHtml(usuarioAtual.habboName, '48px');
+  if (userName) userName.textContent = usuarioAtual.habboName;
+  if (userRole) userRole.textContent = usuarioAtual.cargoOriginal || usuarioAtual.cargo;
+
+  // Mobile profile
+  const mobileProfile = document.getElementById('mobileProfile');
+  const mobileAvatar = document.getElementById('mobileProfileAvatar');
+  const mobileName = document.getElementById('mobileUserName');
+  const mobileRole = document.getElementById('mobileUserRole');
+
+  if (mobileProfile) mobileProfile.style.display = 'block';
+  if (mobileAvatar) mobileAvatar.innerHTML = getAvatarHeadHtml(usuarioAtual.habboName, '56px');
+  if (mobileName) mobileName.textContent = usuarioAtual.habboName;
+  if (mobileRole) mobileRole.textContent = usuarioAtual.cargoOriginal || usuarioAtual.cargo;
 }
 
 function mostrarErroLogin(mensagem) {
-    document.body.innerHTML = `
+  document.body.innerHTML = `
         <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; font-family: 'Inter', sans-serif; text-align: center; padding: 20px;">
             <div style="font-size: 64px; margin-bottom: 20px;">🚫</div>
             <h1 style="font-size: 24px; margin-bottom: 16px; font-weight: 700;">Acesso Negado</h1>
@@ -253,145 +253,145 @@ function mostrarErroLogin(mensagem) {
 // CARREGAMENTO DE DADOS
 // ==========================================
 async function carregarPremios() {
-    if (!supabaseClient) return;
-    
-    const { data, error } = await supabaseClient
-        .from('premios')
-        .select('*')
-        .eq('ativo', true)
-        .order('nome');
-    
-    if (data) {
-        catalogoPremios = { comum: [], incomum: [], raro: [], epico: [], lendario: [] };
-        data.forEach(p => {
-            if (catalogoPremios[p.categoria]) {
-                catalogoPremios[p.categoria].push({
-                    id: p.id,
-                    nome: p.nome,
-                    descricao: p.descricao,
-                    icone: p.icone,
-                    estoque: p.estoque,
-                    categoria: p.categoria
-                });
-            }
+  if (!supabaseClient) return;
+
+  const { data, error } = await supabaseClient
+    .from('premios')
+    .select('*')
+    .eq('ativo', true)
+    .order('nome');
+
+  if (data) {
+    catalogoPremios = { comum: [], incomum: [], raro: [], epico: [], lendario: [] };
+    data.forEach(p => {
+      if (catalogoPremios[p.categoria]) {
+        catalogoPremios[p.categoria].push({
+          id: p.id,
+          nome: p.nome,
+          descricao: p.descricao,
+          icone: p.icone,
+          estoque: p.estoque,
+          categoria: p.categoria
         });
-    }
+      }
+    });
+  }
 }
 
 async function carregarResgates() {
-    if (!supabaseClient || !usuarioAtual) return;
-    
-    // Histórico do usuário
-    const { data } = await supabaseClient
-        .from('resgates')
-        .select('*, premio:premio_id(*)')
-        .eq('habbo_name', usuarioAtual.habboName)
-        .order('created_at', { ascending: false });
-    
-    if (data) {
-        usuarioAtual.historico = data.map(r => ({
-            id: r.id,
-            tipo: r.tipo_ovo,
-            nomeOvo: configOvos[r.tipo_ovo]?.nome || r.tipo_ovo,
-            emoji: configOvos[r.tipo_ovo]?.emoji || '🥚',
-            codigo: r.codigo,
-            pontos: r.pontos,
-            premio: r.premio,
-            data: r.created_at,
-            status: r.status,
-            descricao: r.descricao
-        }));
+  if (!supabaseClient || !usuarioAtual) return;
+
+  // Histórico do usuário
+  const { data } = await supabaseClient
+    .from('resgates')
+    .select('*, premio:premio_id(*)')
+    .eq('habbo_name', usuarioAtual.habboName)
+    .order('created_at', { ascending: false });
+
+  if (data) {
+    usuarioAtual.historico = data.map(r => ({
+      id: r.id,
+      tipo: r.tipo_ovo,
+      nomeOvo: configOvos[r.tipo_ovo]?.nome || r.tipo_ovo,
+      emoji: configOvos[r.tipo_ovo]?.emoji || '🥚',
+      codigo: r.codigo,
+      pontos: r.pontos,
+      premio: r.premio,
+      data: r.created_at,
+      status: r.status,
+      descricao: r.descricao
+    }));
+  }
+
+  // Todos os resgates (para admin)
+  if (isAdmin()) {
+    const { data: todos } = await supabaseClient
+      .from('resgates')
+      .select('*, premio:premio_id(*)')
+      .order('created_at', { ascending: false });
+
+    if (todos) {
+      todosResgates = todos.map(r => ({
+        id: r.id,
+        usuario_id: r.usuario_id,
+        habboName: r.habbo_name,
+        forumName: r.forum_name,
+        usuario: r.forum_name || r.habbo_name,
+        tipo: r.tipo_ovo,
+        nomeOvo: configOvos[r.tipo_ovo]?.nome || r.tipo_ovo,
+        emoji: configOvos[r.tipo_ovo]?.emoji || '🥚',
+        codigo: r.codigo,
+        pontos: r.pontos,
+        premio: r.premio,
+        data: r.created_at,
+        status: r.status,
+        descricao: r.descricao,
+        comprovante_url: r.comprovante_url
+      }));
     }
-    
-    // Todos os resgates (para admin)
-    if (isAdmin()) {
-        const { data: todos } = await supabaseClient
-            .from('resgates')
-            .select('*, premio:premio_id(*)')
-            .order('created_at', { ascending: false });
-        
-        if (todos) {
-            todosResgates = todos.map(r => ({
-                id: r.id,
-                usuario_id: r.usuario_id,
-                habboName: r.habbo_name,
-                forumName: r.forum_name,
-                usuario: r.forum_name || r.habbo_name,
-                tipo: r.tipo_ovo,
-                nomeOvo: configOvos[r.tipo_ovo]?.nome || r.tipo_ovo,
-                emoji: configOvos[r.tipo_ovo]?.emoji || '🥚',
-                codigo: r.codigo,
-                pontos: r.pontos,
-                premio: r.premio,
-                data: r.created_at,
-                status: r.status,
-                descricao: r.descricao,
-                comprovante_url: r.comprovante_url
-            }));
-        }
-    }
+  }
 }
 
 async function carregarCodigosStats() {
-    if (!isAdmin() || !supabaseClient) return;
-    
-    const { data } = await supabaseClient
-        .from('codigos_ovos')
-        .select('tipo, usado');
-    
-    codigosStats = {};
-    if (data) {
-        data.forEach(c => {
-            if (!codigosStats[c.tipo]) {
-                codigosStats[c.tipo] = { total: 0, usados: 0 };
-            }
-            codigosStats[c.tipo].total++;
-            if (c.usado) codigosStats[c.tipo].usados++;
-        });
-    }
+  if (!isAdmin() || !supabaseClient) return;
+
+  const { data } = await supabaseClient
+    .from('codigos_ovos')
+    .select('tipo, usado');
+
+  codigosStats = {};
+  if (data) {
+    data.forEach(c => {
+      if (!codigosStats[c.tipo]) {
+        codigosStats[c.tipo] = { total: 0, usados: 0 };
+      }
+      codigosStats[c.tipo].total++;
+      if (c.usado) codigosStats[c.tipo].usados++;
+    });
+  }
 }
 
 // ==========================================
 // CÓDIGOS - SUPABASE
 // ==========================================
 async function verificarCodigoNoSupabase(codigo) {
-    const { data, error } = await supabaseClient
-        .from('codigos_ovos')
-        .select('*')
-        .eq('codigo', codigo.toUpperCase())
-        .single();
-    
-    if (error || !data) return { valido: false, motivo: 'Código não encontrado' };
-    if (data.usado) return { valido: false, motivo: 'Código já foi usado' };
-    
-    return { 
-        valido: true, 
-        tipo: data.tipo,
-        codigoId: data.id 
-    };
+  const { data, error } = await supabaseClient
+    .from('codigos_ovos')
+    .select('*')
+    .eq('codigo', codigo.toUpperCase())
+    .single();
+
+  if (error || !data) return { valido: false, motivo: 'Código não encontrado' };
+  if (data.usado) return { valido: false, motivo: 'Código já foi usado' };
+
+  return {
+    valido: true,
+    tipo: data.tipo,
+    codigoId: data.id
+  };
 }
 
 // ==========================================
 // UTILITÁRIOS HABBO
 // ==========================================
 function getHabboHeadUrl(username, size = 's') {
-    return `https://www.habbo.com.br/habbo-imaging/avatarimage?user=${encodeURIComponent(username)}&headonly=1&size=${size}`;
+  return `https://www.habbo.com.br/habbo-imaging/avatarimage?user=${encodeURIComponent(username)}&headonly=1&size=${size}`;
 }
 
 function getHabboFullBodyUrl(username, size = 'l') {
-    return `https://www.habbo.com.br/habbo-imaging/avatarimage?user=${encodeURIComponent(username)}&size=${size}`;
+  return `https://www.habbo.com.br/habbo-imaging/avatarimage?user=${encodeURIComponent(username)}&size=${size}`;
 }
 
 function getAvatarHeadHtml(username, tamanho = '48px') {
-    if (!username) return '<div style="font-size: 24px;">🐰</div>';
-    return `<img src="${getHabboHeadUrl(username)}" 
+  if (!username) return '<div style="font-size: 24px;">🐰</div>';
+  return `<img src="${getHabboHeadUrl(username)}" 
         style="width: ${tamanho}; height: ${tamanho}; border-radius: 50%; object-fit: cover;" 
         onerror="this.onerror=null; this.parentElement.innerHTML='🐰';">`;
 }
 
 function getAvatarFullBodyHtml(username, tamanho = '120px') {
-    if (!username) return '<div style="font-size: 40px;">🐰</div>';
-    return `<img src="${getHabboFullBodyUrl(username)}" 
+  if (!username) return '<div style="font-size: 40px;">🐰</div>';
+  return `<img src="${getHabboFullBodyUrl(username)}" 
         style="height: ${tamanho}; width: auto; object-fit: contain;" 
         onerror="this.onerror=null; this.parentElement.innerHTML='🐰';">`;
 }
@@ -400,55 +400,55 @@ function getAvatarFullBodyHtml(username, tamanho = '120px') {
 // NAVEGAÇÃO
 // ==========================================
 function toggleMobileMenu() {
-    const sidebar = document.getElementById('sidebarNav');
-    const overlay = document.getElementById('sidebarOverlay');
-    const btn = document.getElementById('mobileMenuBtn');
-    const body = document.body;
+  const sidebar = document.getElementById('sidebarNav');
+  const overlay = document.getElementById('sidebarOverlay');
+  const btn = document.getElementById('mobileMenuBtn');
+  const body = document.body;
 
-    sidebar.classList.toggle('active');
-    overlay.classList.toggle('active');
-    btn.classList.toggle('active');
-    body.style.overflow = sidebar.classList.contains('active') ? 'hidden' : '';
+  sidebar.classList.toggle('active');
+  overlay.classList.toggle('active');
+  btn.classList.toggle('active');
+  body.style.overflow = sidebar.classList.contains('active') ? 'hidden' : '';
 }
 
 function closeMobileMenu() {
-    const sidebar = document.getElementById('sidebarNav');
-    const overlay = document.getElementById('sidebarOverlay');
-    const btn = document.getElementById('mobileMenuBtn');
-    const body = document.body;
+  const sidebar = document.getElementById('sidebarNav');
+  const overlay = document.getElementById('sidebarOverlay');
+  const btn = document.getElementById('mobileMenuBtn');
+  const body = document.body;
 
-    sidebar.classList.remove('active');
-    overlay.classList.remove('active');
-    btn.classList.remove('active');
-    body.style.overflow = '';
+  sidebar.classList.remove('active');
+  overlay.classList.remove('active');
+  btn.classList.remove('active');
+  body.style.overflow = '';
 }
 
 function showSection(section) {
-    document.querySelectorAll('.section-content').forEach(el => el.classList.add('hidden'));
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.section-content').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
 
-    const targetSection = document.getElementById(`section-${section}`);
-    const targetNav = document.querySelector(`[data-section="${section}"]`);
-    
-    if (targetSection) targetSection.classList.remove('hidden');
-    if (targetNav) targetNav.classList.add('active');
+  const targetSection = document.getElementById(`section-${section}`);
+  const targetNav = document.querySelector(`[data-section="${section}"]`);
 
-    if (section === 'meus') renderizarMeusResgates();
-    if (section === 'ranking') renderizarRanking();
-    if (section === 'admin') renderizarAdmin();
-    if (section === 'premios') renderizarPremios();
+  if (targetSection) targetSection.classList.remove('hidden');
+  if (targetNav) targetNav.classList.add('active');
+
+  if (section === 'meus') renderizarMeusResgates();
+  if (section === 'ranking') renderizarRanking();
+  if (section === 'admin') renderizarAdmin();
+  if (section === 'premios') renderizarPremios();
 }
 
 // ==========================================
 // RENDERIZAÇÃO - GUIA
 // ==========================================
 function renderizarGuiaOvos() {
-    const container = document.getElementById('guiaOvosLista');
-    if (!container) return;
-    
-    const ovos = Object.values(configOvos);
+  const container = document.getElementById('guiaOvosLista');
+  if (!container) return;
 
-    container.innerHTML = ovos.map(ovo => `
+  const ovos = Object.values(configOvos);
+
+  container.innerHTML = ovos.map(ovo => `
         <div class="guia-item ${ovo.id}">
             <div class="guia-header">
                 <div class="guia-emoji">${ovo.emoji}</div>
@@ -469,8 +469,8 @@ function renderizarGuiaOvos() {
             <div class="guia-limites">
                 <i class="fa-solid fa-user-check"></i>
                 ${ovo.limitePorUsuario === Infinity
-                    ? 'Sem limite de resgates'
-                    : `Limite: ${ovo.limitePorUsuario} resgate${ovo.limitePorUsuario > 1 ? 's' : ''} por usuário`}
+      ? 'Sem limite de resgates'
+      : `Limite: ${ovo.limitePorUsuario} resgate${ovo.limitePorUsuario > 1 ? 's' : ''} por usuário`}
             </div>
         </div>
     `).join('');
@@ -480,29 +480,29 @@ function renderizarGuiaOvos() {
 // RENDERIZAÇÃO - PRÊMIOS (PÚBLICO)
 // ==========================================
 function renderizarPremios() {
-    const categorias = [
-        { id: 'comum', nome: 'Comum', cor: 'comum', icone: 'star' },
-        { id: 'incomum', nome: 'Incomum', cor: 'incomum', icone: 'star-half' },
-        { id: 'raro', nome: 'Raro', cor: 'raro', icone: 'gem' },
-        { id: 'epico', nome: 'Épico', cor: 'epico', icone: 'crown' },
-        { id: 'lendario', nome: 'Lendário', cor: 'lendario', icone: 'trophy' }
-    ];
+  const categorias = [
+    { id: 'comum', nome: 'Comum', cor: 'comum', icone: 'star' },
+    { id: 'incomum', nome: 'Incomum', cor: 'incomum', icone: 'star-half' },
+    { id: 'raro', nome: 'Raro', cor: 'raro', icone: 'gem' },
+    { id: 'epico', nome: 'Épico', cor: 'epico', icone: 'crown' },
+    { id: 'lendario', nome: 'Lendário', cor: 'lendario', icone: 'trophy' }
+  ];
 
-    let totalPremios = 0;
+  let totalPremios = 0;
 
-    categorias.forEach(cat => {
-        const container = document.getElementById(`premios${cat.nome}`);
-        if (!container) return;
-        
-        const premios = catalogoPremios[cat.id] || [];
-        totalPremios += premios.length;
-        
-        if (premios.length === 0) {
-            container.innerHTML = '<p style="color: var(--text-tertiary); text-align: center; padding: 20px;">Nenhum prêmio disponível.</p>';
-            return;
-        }
-        
-        container.innerHTML = premios.map(p => `
+  categorias.forEach(cat => {
+    const container = document.getElementById(`premios${cat.nome}`);
+    if (!container) return;
+
+    const premios = catalogoPremios[cat.id] || [];
+    totalPremios += premios.length;
+
+    if (premios.length === 0) {
+      container.innerHTML = '<p style="color: var(--text-tertiary); text-align: center; padding: 20px;">Nenhum prêmio disponível.</p>';
+      return;
+    }
+
+    container.innerHTML = premios.map(p => `
             <div class="premio-card ${cat.cor}">
                 <span class="premio-raridade">${cat.nome}</span>
                 <div class="premio-icon">${p.icone}</div>
@@ -511,33 +511,33 @@ function renderizarPremios() {
                 <span class="premio-origem ovo">Estoque: ${p.estoque}</span>
             </div>
         `).join('');
-    });
+  });
 
-    const totalBadge = document.getElementById('totalPremios');
-    if (totalBadge) totalBadge.textContent = `${totalPremios} prêmios`;
+  const totalBadge = document.getElementById('totalPremios');
+  if (totalBadge) totalBadge.textContent = `${totalPremios} prêmios`;
 }
 
 // ==========================================
 // RENDERIZAÇÃO - MEUS RESGATES
 // ==========================================
 function renderizarMeusResgates() {
-    if (!usuarioAtual) return;
-    
-    // Últimos resgates (máximo 5)
-    const ultimosContainer = document.getElementById('meusUltimosResgates');
-    const ultimos = usuarioAtual.historico?.slice(0, 5) || [];
+  if (!usuarioAtual) return;
 
-    if (ultimosContainer) {
-        if (ultimos.length === 0) {
-            ultimosContainer.innerHTML = `
+  // Últimos resgates (máximo 5)
+  const ultimosContainer = document.getElementById('meusUltimosResgates');
+  const ultimos = usuarioAtual.historico?.slice(0, 5) || [];
+
+  if (ultimosContainer) {
+    if (ultimos.length === 0) {
+      ultimosContainer.innerHTML = `
                 <div class="empty-state">
                     <div style="font-size: 64px; margin-bottom: 16px;">🧺</div>
                     <h3>Sua cesta está vazia</h3>
                     <p>Encontre e resgate ovos para preenchê-la!</p>
                 </div>
             `;
-        } else {
-            ultimosContainer.innerHTML = ultimos.map(h => `
+    } else {
+      ultimosContainer.innerHTML = ultimos.map(h => `
                 <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--bg-white); border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--border-light); border-left: 4px solid ${h.status === 'aprovado' ? 'var(--success)' : h.status === 'pendente' ? 'var(--warning)' : 'var(--danger)'};">
                     <div style="font-size: 40px;">${h.emoji}</div>
                     <div style="flex: 1;">
@@ -551,15 +551,15 @@ function renderizarMeusResgates() {
                     ${h.premio ? `<div style="font-size: 24px;" title="${h.premio.nome}">${h.premio.icone}</div>` : ''}
                 </div>
             `).join('');
-        }
     }
+  }
 
-    // Histórico completo
-    const historicoContainer = document.getElementById('meuHistoricoCompleto');
-    if (historicoContainer) {
-        historicoContainer.innerHTML = !usuarioAtual.historico || usuarioAtual.historico.length === 0 ?
-            `<div class="empty-state"><i class="fa-solid fa-basket-shopping" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></i><h3>Nenhum resgate ainda</h3><p>Comece a caçar ovos!</p></div>` :
-            usuarioAtual.historico.map(h => `
+  // Histórico completo
+  const historicoContainer = document.getElementById('meuHistoricoCompleto');
+  if (historicoContainer) {
+    historicoContainer.innerHTML = !usuarioAtual.historico || usuarioAtual.historico.length === 0 ?
+      `<div class="empty-state"><i class="fa-solid fa-basket-shopping" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></i><h3>Nenhum resgate ainda</h3><p>Comece a caçar ovos!</p></div>` :
+      usuarioAtual.historico.map(h => `
                 <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--bg-white); border-radius: 12px; margin-bottom: 12px; border-left: 4px solid ${h.status === 'aprovado' ? (configOvos[h.tipo]?.cor === 'gradient' ? '#f59e0b' : configOvos[h.tipo]?.cor || '#ccc') : h.status === 'pendente' ? 'var(--warning)' : 'var(--danger)'};">
                     <div style="font-size: 40px;">${h.emoji}</div>
                     <div style="flex: 1;">
@@ -577,69 +577,69 @@ function renderizarMeusResgates() {
                     </div>
                 </div>
             `).join('');
-    }
+  }
 
-    // Atualizar estatísticas
-    const ovosAprovados = usuarioAtual.historico?.filter(h => h.status === 'aprovado') || [];
-    const pontosAprovados = ovosAprovados.reduce((sum, h) => sum + h.pontos, 0);
-    const premiosAprovados = ovosAprovados.filter(h => h.premio).length;
+  // Atualizar estatísticas
+  const ovosAprovados = usuarioAtual.historico?.filter(h => h.status === 'aprovado') || [];
+  const pontosAprovados = ovosAprovados.reduce((sum, h) => sum + h.pontos, 0);
+  const premiosAprovados = ovosAprovados.filter(h => h.premio).length;
 
-    const elPontos = document.getElementById('meusPontosTotal');
-    const elOvos = document.getElementById('meusOvosTotal');
-    const elPremios = document.getElementById('meusPremiosTotal');
-    
-    if (elPontos) elPontos.textContent = pontosAprovados;
-    if (elOvos) elOvos.textContent = ovosAprovados.length;
-    if (elPremios) elPremios.textContent = premiosAprovados;
+  const elPontos = document.getElementById('meusPontosTotal');
+  const elOvos = document.getElementById('meusOvosTotal');
+  const elPremios = document.getElementById('meusPremiosTotal');
+
+  if (elPontos) elPontos.textContent = pontosAprovados;
+  if (elOvos) elOvos.textContent = ovosAprovados.length;
+  if (elPremios) elPremios.textContent = premiosAprovados;
 }
 
 function atualizarStats() {
-    if (!usuarioAtual) return;
-    
-    const ovosAprovados = usuarioAtual.historico?.filter(h => h.status === 'aprovado') || [];
-    const pontosAprovados = ovosAprovados.reduce((sum, h) => sum + h.pontos, 0);
-    const premiosAprovados = ovosAprovados.filter(h => h.premio).length;
+  if (!usuarioAtual) return;
 
-    const elPoints = document.getElementById('userPoints');
-    const elOvos = document.getElementById('userTotalOvos');
-    const elPremios = document.getElementById('userTotalPremios');
-    
-    if (elPoints) elPoints.textContent = pontosAprovados;
-    if (elOvos) elOvos.textContent = ovosAprovados.length;
-    if (elPremios) elPremios.textContent = premiosAprovados;
+  const ovosAprovados = usuarioAtual.historico?.filter(h => h.status === 'aprovado') || [];
+  const pontosAprovados = ovosAprovados.reduce((sum, h) => sum + h.pontos, 0);
+  const premiosAprovados = ovosAprovados.filter(h => h.premio).length;
+
+  const elPoints = document.getElementById('userPoints');
+  const elOvos = document.getElementById('userTotalOvos');
+  const elPremios = document.getElementById('userTotalPremios');
+
+  if (elPoints) elPoints.textContent = pontosAprovados;
+  if (elOvos) elOvos.textContent = ovosAprovados.length;
+  if (elPremios) elPremios.textContent = premiosAprovados;
 }
 
 // ==========================================
 // RENDERIZAÇÃO - RANKING
 // ==========================================
 function renderizarRanking() {
-    if (!membros.length) return;
-    
-    // Preparar dados
-    const jogadores = membros.map(m => {
-        const souEu = usuarioAtual && (m.nick === usuarioAtual.habboName || m.nick === usuarioAtual.forumName);
-        const meusDados = souEu ? usuarioAtual : null;
-        
-        return {
-            nome: m.nick,
-            habboName: m.nick,
-            pontos: meusDados?.pontos || Math.floor(Math.random() * 500),
-            ovos: meusDados ? Object.values(meusDados.ovosResgatados || {}).reduce((a, b) => a + b, 0) : Math.floor(Math.random() * 15),
-            souEu: souEu
-        };
-    });
+  if (!membros.length) return;
 
-    const ordenarPor = tipoRankingAtual === 'pontos' ? 'pontos' : 'ovos';
-    jogadores.sort((a, b) => b[ordenarPor] - a[ordenarPor]);
+  // Preparar dados
+  const jogadores = membros.map(m => {
+    const souEu = usuarioAtual && (m.nick === usuarioAtual.habboName || m.nick === usuarioAtual.forumName);
+    const meusDados = souEu ? usuarioAtual : null;
 
-    // Pódium
-    const podium = jogadores.slice(0, 3);
-    const podiumContainer = document.getElementById('podiumTop3');
-    
-    if (podiumContainer && podium.length >= 3) {
-        const iconesPodium = { 1: 'fa-crown', 2: 'fa-medal', 3: 'fa-award' };
-        
-        podiumContainer.innerHTML = `
+    return {
+      nome: m.nick,
+      habboName: m.nick,
+      pontos: meusDados?.pontos || Math.floor(Math.random() * 500),
+      ovos: meusDados ? Object.values(meusDados.ovosResgatados || {}).reduce((a, b) => a + b, 0) : Math.floor(Math.random() * 15),
+      souEu: souEu
+    };
+  });
+
+  const ordenarPor = tipoRankingAtual === 'pontos' ? 'pontos' : 'ovos';
+  jogadores.sort((a, b) => b[ordenarPor] - a[ordenarPor]);
+
+  // Pódium
+  const podium = jogadores.slice(0, 3);
+  const podiumContainer = document.getElementById('podiumTop3');
+
+  if (podiumContainer && podium.length >= 3) {
+    const iconesPodium = { 1: 'fa-crown', 2: 'fa-medal', 3: 'fa-award' };
+
+    podiumContainer.innerHTML = `
             <div class="podium-item pos-2">
                 <div class="podium-avatar-wrapper">
                     <div class="podium-badge"><i class="fa-solid ${iconesPodium[2]}"></i></div>
@@ -689,12 +689,12 @@ function renderizarRanking() {
                 </div>
             </div>
         `;
-    }
+  }
 
-    // Lista completa
-    const rankingContainer = document.getElementById('rankingCompleto');
-    if (rankingContainer) {
-        rankingContainer.innerHTML = jogadores.map((j, index) => `
+  // Lista completa
+  const rankingContainer = document.getElementById('rankingCompleto');
+  if (rankingContainer) {
+    rankingContainer.innerHTML = jogadores.map((j, index) => `
             <div class="ranking-item-novo ${j.souEu ? 'destaque' : ''}" data-pos="${index + 1}">
                 <div class="ranking-pos ${index < 3 ? 'top' : 'normal'}">${index + 1}</div>
                 <div class="ranking-avatar-novo" style="overflow: hidden; padding: 0; border-radius: 50%;">
@@ -716,69 +716,73 @@ function renderizarRanking() {
                 </div>
             </div>
         `).join('');
-    }
+  }
 }
 
 function alternarRanking(tipo) {
-    tipoRankingAtual = tipo;
-    
-    const btnPontos = document.getElementById('btnRankPontos');
-    const btnOvos = document.getElementById('btnRankOvos');
-    
-    if (btnPontos) btnPontos.classList.toggle('btn-rank-ativo', tipo === 'pontos');
-    if (btnOvos) btnOvos.classList.toggle('btn-rank-ativo', tipo === 'ovos');
-    
-    renderizarRanking();
+  tipoRankingAtual = tipo;
+
+  const btnPontos = document.getElementById('btnRankPontos');
+  const btnOvos = document.getElementById('btnRankOvos');
+
+  if (btnPontos) btnPontos.classList.toggle('btn-rank-ativo', tipo === 'pontos');
+  if (btnOvos) btnOvos.classList.toggle('btn-rank-ativo', tipo === 'ovos');
+
+  renderizarRanking();
 }
 
 // ==========================================
 // LÓGICA DE RESGATE
 // ==========================================
 async function iniciarResgateCodigo() {
-    const input = document.getElementById('codigoInput');
-    const codigo = input?.value?.trim();
+  const input = document.getElementById('codigoInput');
+  const codigo = input?.value?.trim();
 
-    if (!codigo) {
-        showToast('Erro', 'Digite um código válido!', 'error');
-        return;
-    }
+  if (!codigo) {
+    showToast('Erro', 'Digite um código válido!', 'error');
+    return;
+  }
 
-    // Verificar no Supabase
-    const verificacao = await verificarCodigoNoSupabase(codigo);
-    
-    if (!verificacao.valido) {
-        showToast('Código Inválido', verificacao.motivo, 'error');
-        input.value = '';
-        return;
-    }
+  // Verificar no Supabase
+  const verificacao = await verificarCodigoNoSupabase(codigo);
 
-    const config = configOvos[verificacao.tipo];
-    
-    // Verificar limite do usuário
-    const jaResgatados = usuarioAtual.ovosResgatados?.[verificacao.tipo] || 0;
-    if (jaResgatados >= config.limitePorUsuario) {
-        showToast('Limite Atingido', `Você já resgatou o máximo de ${config.nome}(s)!`, 'error');
-        return;
-    }
+  if (!verificacao.valido) {
+    showToast('Código Inválido', verificacao.motivo, 'error');
+    input.value = '';
+    return;
+  }
 
-    resgatePendente = {
-        codigo: codigo.toUpperCase(),
-        codigoId: verificacao.codigoId,
-        tipo: verificacao.tipo,
-        config: config
-    };
+  const config = configOvos[verificacao.tipo];
 
-    abrirComprovacaoModal();
+  // Verificar limite do usuário
+  const jaResgatados = usuarioAtual.ovosResgatados?.[verificacao.tipo] || 0;
+  if (jaResgatados >= config.limitePorUsuario) {
+    showToast('Limite Atingido', `Você já resgatou o máximo de ${config.nome}(s)!`, 'error');
+    return;
+  }
+
+  resgatePendente = {
+    codigo: codigo.toUpperCase(),
+    codigoId: verificacao.codigoId,
+    tipo: verificacao.tipo,
+    config: config
+  };
+
+  abrirComprovacaoModal();
 }
 
-function abrirComprovacaoModal() {
-    if (!resgatePendente) return;
-    
-    const config = resgatePendente.config;
+// ==========================================
+// LÓGICA DE RESGATE COM LINK
+// ==========================================
 
-    const infoDiv = document.getElementById('comprovacaoInfo');
-    if (infoDiv) {
-        infoDiv.innerHTML = `
+function abrirComprovacaoModal() {
+  if (!resgatePendente) return;
+
+  const config = resgatePendente.config;
+
+  const infoDiv = document.getElementById('comprovacaoInfo');
+  if (infoDiv) {
+    infoDiv.innerHTML = `
             <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
                 <div style="font-size: 48px;">${config.emoji}</div>
                 <div>
@@ -802,162 +806,309 @@ function abrirComprovacaoModal() {
                 ` : ''}
             </div>
         `;
-    }
+  }
 
-    const modal = document.getElementById('comprovacaoModal');
-    if (modal) modal.classList.add('active');
+  const modal = document.getElementById('comprovacaoModal');
+  if (modal) modal.classList.add('active');
+
+  // Adicionar listener para preview do link
+  const linkInput = document.getElementById('comprovacaoLink');
+  if (linkInput) {
+    linkInput.addEventListener('input', atualizarPreviewLink);
+  }
+}
+
+function atualizarPreviewLink() {
+  const linkInput = document.getElementById('comprovacaoLink');
+  const previewDiv = document.getElementById('linkPreview');
+  const previewImg = document.getElementById('previewImageLink');
+
+  const url = linkInput?.value?.trim();
+
+  if (url && isValidImageUrl(url)) {
+    previewImg.src = url;
+    previewImg.onload = function () {
+      previewDiv.style.display = 'block';
+    };
+    previewImg.onerror = function () {
+      previewDiv.style.display = 'none';
+    };
+  } else {
+    previewDiv.style.display = 'none';
+  }
+}
+
+function isValidImageUrl(url) {
+  return url.match(/\.(jpeg|jpg|gif|png|webp)$/i) !== null ||
+    url.includes('imgur.com') ||
+    url.includes('prnt.sc') ||
+    url.includes('lightshot');
 }
 
 function fecharComprovacaoModal() {
-    const modal = document.getElementById('comprovacaoModal');
-    if (modal) modal.classList.remove('active');
-    
-    const form = document.getElementById('formComprovacao');
-    if (form) form.reset();
-    
-    const preview = document.getElementById('filePreview');
-    if (preview) preview.style.display = 'none';
-    
-    resgatePendente = null;
-}
+  const modal = document.getElementById('comprovacaoModal');
+  if (modal) modal.classList.remove('active');
 
-function previewComprovacao(input) {
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            const previewImg = document.getElementById('previewImage');
-            const previewDiv = document.getElementById('filePreview');
-            if (previewImg) previewImg.src = e.target.result;
-            if (previewDiv) previewDiv.style.display = 'block';
-        };
-        reader.readAsDataURL(input.files[0]);
-    }
+  const form = document.getElementById('formComprovacao');
+  if (form) form.reset();
+
+  const previewDiv = document.getElementById('linkPreview');
+  if (previewDiv) previewDiv.style.display = 'none';
+
+  // Remover listener
+  const linkInput = document.getElementById('comprovacaoLink');
+  if (linkInput) {
+    linkInput.removeEventListener('input', atualizarPreviewLink);
+  }
+
+  resgatePendente = null;
 }
 
 async function confirmarComprovacao(e) {
-    e.preventDefault();
-    if (!resgatePendente || !usuarioAtual) return;
+  e.preventDefault();
+  if (!resgatePendente || !usuarioAtual) return;
 
-    const descricao = document.getElementById('comprovacaoDesc')?.value || '';
-    const fileInput = document.getElementById('comprovacaoFile');
-    const file = fileInput?.files[0];
-    const config = resgatePendente.config;
+  const linkComprovacao = document.getElementById('comprovacaoLink')?.value?.trim();
+  const descricao = document.getElementById('comprovacaoDesc')?.value?.trim();
+  const config = resgatePendente.config;
 
-    // Determinar prêmio
-    let premioGanho = null;
-    let premioId = null;
-    
-    if (config.premioGarantido) {
-        const disponiveis = catalogoPremios.lendario.filter(p => p.estoque > 0);
-        if (disponiveis.length > 0) {
-            premioGanho = disponiveis[0];
-            premioId = premioGanho.id;
-        }
-    } else if (config.chancePremio > 0 && Math.random() < config.chancePremio) {
-        const cat = config.id === 'lendario' ? 'lendario' : config.id === 'epico' ? 'epico' : 'raro';
-        const disponiveis = catalogoPremios[cat].filter(p => p.estoque > 0);
-        if (disponiveis.length > 0) {
-            premioGanho = disponiveis[Math.floor(Math.random() * disponiveis.length)];
-            premioId = premioGanho.id;
-        }
+  if (!linkComprovacao) {
+    showToast('Erro', 'O link de comprovação é obrigatório!', 'error');
+    return;
+  }
+
+  // Validar URL
+  try {
+    new URL(linkComprovacao);
+  } catch {
+    showToast('Erro', 'Por favor, insira um link válido!', 'error');
+    return;
+  }
+
+  // Determinar prêmio
+  let premioGanho = null;
+  let premioId = null;
+
+  if (config.premioGarantido) {
+    const disponiveis = catalogoPremios.lendario.filter(p => p.estoque > 0);
+    if (disponiveis.length > 0) {
+      premioGanho = disponiveis[0];
+      premioId = premioGanho.id;
     }
-
-    // Upload imagem
-    let comprovanteUrl = null;
-    if (file && supabaseClient) {
-        const fileName = `${usuarioAtual.id}/${Date.now()}.${file.name.split('.').pop()}`;
-        const { data: upload } = await supabaseClient.storage.from('comprovantes').upload(fileName, file);
-        if (upload) {
-            const { data: { publicUrl } } = supabaseClient.storage.from('comprovantes').getPublicUrl(fileName);
-            comprovanteUrl = publicUrl;
-        }
+  } else if (config.chancePremio > 0 && Math.random() < config.chancePremio) {
+    const cat = config.id === 'lendario' ? 'lendario' : config.id === 'epico' ? 'epico' : 'raro';
+    const disponiveis = catalogoPremios[cat].filter(p => p.estoque > 0);
+    if (disponiveis.length > 0) {
+      premioGanho = disponiveis[Math.floor(Math.random() * disponiveis.length)];
+      premioId = premioGanho.id;
     }
+  }
 
-    // Salvar resgate
-    const { data: resgateData, error } = await supabaseClient
-        .from('resgates')
-        .insert([{
-            usuario_id: usuarioAtual.id,
-            habbo_name: usuarioAtual.habboName,
-            forum_name: usuarioAtual.forumName,
-            tipo_ovo: resgatePendente.tipo,
-            codigo: resgatePendente.codigo,
-            pontos: config.pontos,
-            premio_id: premioId,
-            descricao: descricao,
-            comprovante_url: comprovanteUrl,
-            status: 'pendente'
-        }])
-        .select()
-        .single();
+  // Salvar resgate
+  const { data: resgateData, error } = await supabaseClient
+    .from('resgates')
+    .insert([{
+      usuario_id: usuarioAtual.id,
+      habbo_name: usuarioAtual.habboName,
+      forum_name: usuarioAtual.forumName,
+      tipo_ovo: resgatePendente.tipo,
+      codigo: resgatePendente.codigo,
+      pontos: config.pontos,
+      premio_id: premioId,
+      descricao: descricao,
+      comprovante_url: linkComprovacao, // LINK AQUI
+      status: 'pendente'
+    }])
+    .select()
+    .single();
 
-    if (error) {
-        showToast('Erro', 'Falha ao salvar: ' + error.message, 'error');
-        return;
+  if (error) {
+    showToast('Erro', 'Falha ao salvar: ' + error.message, 'error');
+    return;
+  }
+
+  // Marcar código como usado
+  await supabaseClient
+    .from('codigos_ovos')
+    .update({ usado: true, usado_por: usuarioAtual.id, usado_em: new Date().toISOString() })
+    .eq('id', resgatePendente.codigoId);
+
+  // Atualizar local
+  usuarioAtual.historico.unshift({
+    id: resgateData.id,
+    tipo: resgatePendente.tipo,
+    nomeOvo: config.nome,
+    emoji: config.emoji,
+    codigo: resgatePendente.codigo,
+    pontos: config.pontos,
+    premio: premioGanho,
+    data: resgateData.created_at,
+    status: 'pendente',
+    comprovante_url: linkComprovacao // Guardar local também
+  });
+
+  fecharComprovacaoModal();
+  const input = document.getElementById('codigoInput');
+  if (input) input.value = '';
+
+  showToast('Sucesso!', 'Resgate enviado para aprovação.', 'success');
+  renderizarMeusResgates();
+  if (isAdmin()) {
+    await carregarResgates();
+    renderizarAdmin();
+  }
+}
+
+function fecharComprovacaoModal() {
+  const modal = document.getElementById('comprovacaoModal');
+  if (modal) modal.classList.remove('active');
+
+  const form = document.getElementById('formComprovacao');
+  if (form) form.reset();
+
+  const preview = document.getElementById('filePreview');
+  if (preview) preview.style.display = 'none';
+
+  resgatePendente = null;
+}
+
+function previewComprovacao(input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const previewImg = document.getElementById('previewImage');
+      const previewDiv = document.getElementById('filePreview');
+      if (previewImg) previewImg.src = e.target.result;
+      if (previewDiv) previewDiv.style.display = 'block';
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+async function confirmarComprovacao(e) {
+  e.preventDefault();
+  if (!resgatePendente || !usuarioAtual) return;
+
+  const descricao = document.getElementById('comprovacaoDesc')?.value || '';
+  const fileInput = document.getElementById('comprovacaoFile');
+  const file = fileInput?.files[0];
+  const config = resgatePendente.config;
+
+  // Determinar prêmio
+  let premioGanho = null;
+  let premioId = null;
+
+  if (config.premioGarantido) {
+    const disponiveis = catalogoPremios.lendario.filter(p => p.estoque > 0);
+    if (disponiveis.length > 0) {
+      premioGanho = disponiveis[0];
+      premioId = premioGanho.id;
     }
-
-    // Marcar código como usado
-    await supabaseClient
-        .from('codigos_ovos')
-        .update({ usado: true, usado_por: usuarioAtual.id, usado_em: new Date().toISOString() })
-        .eq('id', resgatePendente.codigoId);
-
-    // Atualizar local
-    usuarioAtual.historico.unshift({
-        id: resgateData.id,
-        tipo: resgatePendente.tipo,
-        nomeOvo: config.nome,
-        emoji: config.emoji,
-        codigo: resgatePendente.codigo,
-        pontos: config.pontos,
-        premio: premioGanho,
-        data: resgateData.created_at,
-        status: 'pendente'
-    });
-
-    fecharComprovacaoModal();
-    const input = document.getElementById('codigoInput');
-    if (input) input.value = '';
-    
-    showToast('Sucesso!', 'Resgate enviado para aprovação.', 'success');
-    renderizarMeusResgates();
-    if (isAdmin()) {
-        await carregarResgates();
-        renderizarAdmin();
+  } else if (config.chancePremio > 0 && Math.random() < config.chancePremio) {
+    const cat = config.id === 'lendario' ? 'lendario' : config.id === 'epico' ? 'epico' : 'raro';
+    const disponiveis = catalogoPremios[cat].filter(p => p.estoque > 0);
+    if (disponiveis.length > 0) {
+      premioGanho = disponiveis[Math.floor(Math.random() * disponiveis.length)];
+      premioId = premioGanho.id;
     }
+  }
+
+  // Upload imagem
+  let comprovanteUrl = null;
+  if (file && supabaseClient) {
+    const fileName = `${usuarioAtual.id}/${Date.now()}.${file.name.split('.').pop()}`;
+    const { data: upload } = await supabaseClient.storage.from('comprovantes').upload(fileName, file);
+    if (upload) {
+      const { data: { publicUrl } } = supabaseClient.storage.from('comprovantes').getPublicUrl(fileName);
+      comprovanteUrl = publicUrl;
+    }
+  }
+
+  // Salvar resgate
+  const { data: resgateData, error } = await supabaseClient
+    .from('resgates')
+    .insert([{
+      usuario_id: usuarioAtual.id,
+      habbo_name: usuarioAtual.habboName,
+      forum_name: usuarioAtual.forumName,
+      tipo_ovo: resgatePendente.tipo,
+      codigo: resgatePendente.codigo,
+      pontos: config.pontos,
+      premio_id: premioId,
+      descricao: descricao,
+      comprovante_url: comprovanteUrl,
+      status: 'pendente'
+    }])
+    .select()
+    .single();
+
+  if (error) {
+    showToast('Erro', 'Falha ao salvar: ' + error.message, 'error');
+    return;
+  }
+
+  // Marcar código como usado
+  await supabaseClient
+    .from('codigos_ovos')
+    .update({ usado: true, usado_por: usuarioAtual.id, usado_em: new Date().toISOString() })
+    .eq('id', resgatePendente.codigoId);
+
+  // Atualizar local
+  usuarioAtual.historico.unshift({
+    id: resgateData.id,
+    tipo: resgatePendente.tipo,
+    nomeOvo: config.nome,
+    emoji: config.emoji,
+    codigo: resgatePendente.codigo,
+    pontos: config.pontos,
+    premio: premioGanho,
+    data: resgateData.created_at,
+    status: 'pendente'
+  });
+
+  fecharComprovacaoModal();
+  const input = document.getElementById('codigoInput');
+  if (input) input.value = '';
+
+  showToast('Sucesso!', 'Resgate enviado para aprovação.', 'success');
+  renderizarMeusResgates();
+  if (isAdmin()) {
+    await carregarResgates();
+    renderizarAdmin();
+  }
 }
 
 function fecharResultadoModal() {
-    const modal = document.getElementById('resultadoModal');
-    if (modal) modal.classList.remove('active');
+  const modal = document.getElementById('resultadoModal');
+  if (modal) modal.classList.remove('active');
 }
 
 // ==========================================
 // ADMIN - RENDERIZAÇÃO
 // ==========================================
 function isAdmin() {
-    return usuarioAtual?.grupoPermissao === 'admin';
+  return usuarioAtual?.grupoPermissao === 'admin';
 }
 
 function renderizarAdmin() {
-    if (!isAdmin()) {
-        const content = document.getElementById('adminContent');
-        if (content) {
-            content.innerHTML = `
+  if (!isAdmin()) {
+    const content = document.getElementById('adminContent');
+    if (content) {
+      content.innerHTML = `
                 <div class="empty-state">
                     <i class="fa-solid fa-lock" style="font-size: 48px; margin-bottom: 16px;"></i>
                     <h3>Acesso Restrito</h3>
                     <p>Apenas administradores podem acessar esta área.</p>
                 </div>
             `;
-        }
-        return;
     }
+    return;
+  }
 
-    const container = document.getElementById('adminContent');
-    if (!container) return;
-    
-    container.innerHTML = `
+  const container = document.getElementById('adminContent');
+  if (!container) return;
+
+  container.innerHTML = `
         <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
             <button class="btn btn-sm ${abaAdminAtiva === 'resgates' ? 'btn-primary' : 'btn-secondary'}" onclick="mudarAbaAdmin('resgates')">
                 <i class="fa-solid fa-clipboard-check"></i> Aprovar Resgates
@@ -972,35 +1123,35 @@ function renderizarAdmin() {
         <div id="adminAbaContent"></div>
     `;
 
-    renderizarAbaAdmin();
+  renderizarAbaAdmin();
 }
 
 function mudarAbaAdmin(aba) {
-    abaAdminAtiva = aba;
-    renderizarAdmin();
+  abaAdminAtiva = aba;
+  renderizarAdmin();
 }
 
 function renderizarAbaAdmin() {
-    const content = document.getElementById('adminAbaContent');
-    if (!content) return;
-    
-    switch(abaAdminAtiva) {
-        case 'resgates':
-            content.innerHTML = renderizarAbaResgates();
-            break;
-        case 'premios':
-            content.innerHTML = renderizarAbaPremios();
-            break;
-        case 'codigos':
-            content.innerHTML = renderizarAbaCodigos();
-            break;
-    }
+  const content = document.getElementById('adminAbaContent');
+  if (!content) return;
+
+  switch (abaAdminAtiva) {
+    case 'resgates':
+      content.innerHTML = renderizarAbaResgates();
+      break;
+    case 'premios':
+      content.innerHTML = renderizarAbaPremios();
+      break;
+    case 'codigos':
+      content.innerHTML = renderizarAbaCodigos();
+      break;
+  }
 }
 
 function renderizarAbaResgates() {
-    const pendentes = todosResgates.filter(r => r.status === 'pendente');
-    
-    return `
+  const pendentes = todosResgates.filter(r => r.status === 'pendente');
+
+  return `
         <div class="panel">
             <div class="panel-header">
                 <div class="panel-title">
@@ -1016,12 +1167,13 @@ function renderizarAbaResgates() {
                                 <th>Ovo</th>
                                 <th>Código</th>
                                 <th>Recompensa</th>
+                                <th>Comprovação</th>
                                 <th>Ações</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${pendentes.length === 0 ? `
-                                <tr><td colspan="5" style="text-align: center; padding: 40px;">
+                                <tr><td colspan="6" style="text-align: center; padding: 40px;">
                                     <div class="empty-state">
                                         <i class="fa-solid fa-check-circle" style="font-size: 48px; color: var(--success);"></i>
                                         <h3>Tudo em ordem!</h3>
@@ -1048,8 +1200,15 @@ function renderizarAbaResgates() {
                                         ${r.premio ? `<br><span style="font-size: 16px;">${r.premio.icone} ${r.premio.nome}</span>` : ''}
                                     </td>
                                     <td>
+                                        ${r.comprovante_url ? `
+                                            <a href="${r.comprovante_url}" target="_blank" class="btn btn-sm btn-primary" style="text-decoration: none;">
+                                                <i class="fa-solid fa-image"></i> Ver Print
+                                            </a>
+                                        ` : '<span style="color: var(--text-tertiary); font-size: 12px;">Sem link</span>'}
+                                    </td>
+                                    <td>
                                         <div class="action-btns">
-                                            <button class="btn-icon btn-view" onclick="verDetalhesResgate('${r.id}')" title="Ver detalhes"><i class="fa-solid fa-eye"></i></button>
+                                            <button class="btn-icon btn-view" onclick="verDetalhesResgate('${r.id}')" title="Ver detalhes completos"><i class="fa-solid fa-eye"></i></button>
                                             <button class="btn-icon btn-approve" onclick="aprovarResgate('${r.id}')" title="Aprovar"><i class="fa-solid fa-check"></i></button>
                                             <button class="btn-icon btn-reject" onclick="rejeitarResgate('${r.id}')" title="Rejeitar"><i class="fa-solid fa-xmark"></i></button>
                                         </div>
@@ -1065,9 +1224,9 @@ function renderizarAbaResgates() {
 }
 
 function renderizarAbaPremios() {
-    const categorias = ['comum', 'incomum', 'raro', 'epico', 'lendario'];
-    
-    return `
+  const categorias = ['comum', 'incomum', 'raro', 'epico', 'lendario'];
+
+  return `
         <div style="display: grid; gap: 20px;">
             <div class="panel" style="border: 2px solid var(--primary);">
                 <div class="panel-header" style="background: var(--gradient-primary); color: white;">
@@ -1118,9 +1277,9 @@ function renderizarAbaPremios() {
                         </div>
                     </div>
                     <div class="panel-content">
-                        ${!catalogoPremios[cat] || catalogoPremios[cat].length === 0 ? 
-                            '<p style="color: var(--text-tertiary);">Nenhum prêmio nesta categoria.</p>' : 
-                            `<div style="display: grid; gap: 12px;">
+                        ${!catalogoPremios[cat] || catalogoPremios[cat].length === 0 ?
+      '<p style="color: var(--text-tertiary);">Nenhum prêmio nesta categoria.</p>' :
+      `<div style="display: grid; gap: 12px;">
                                 ${catalogoPremios[cat].map(p => `
                                     <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--bg-white); border-radius: 12px; border: 1px solid var(--border-light);">
                                         <div style="font-size: 40px; width: 60px; text-align: center;">${p.icone}</div>
@@ -1148,7 +1307,7 @@ function renderizarAbaPremios() {
                                     </div>
                                 `).join('')}
                             </div>`
-                        }
+    }
                     </div>
                 </div>
             `).join('')}
@@ -1157,181 +1316,399 @@ function renderizarAbaPremios() {
 }
 
 function renderizarAbaCodigos() {
-    return `
-        <div class="panel">
-            <div class="panel-header">
-                <div class="panel-title">
-                    <i class="fa-solid fa-key"></i> Estatísticas dos Códigos
+  return `
+        <div style="display: grid; gap: 20px;">
+            <!-- ESTATÍSTICAS -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <i class="fa-solid fa-chart-pie"></i> Estatísticas dos Códigos
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="abrirModalNovoCodigo()">
+                        <i class="fa-solid fa-plus"></i> Gerar Códigos
+                    </button>
                 </div>
-                <button class="btn btn-primary btn-sm" onclick="abrirModalNovoCodigo()">
-                    <i class="fa-solid fa-plus"></i> Gerar Códigos
-                </button>
-            </div>
-            <div class="panel-content">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px;">
-                    ${Object.entries(configOvos).map(([key, ovo]) => `
-                        <div style="background: var(--bg-white); padding: 20px; border-radius: 12px; border-left: 4px solid ${ovo.cor === 'gradient' ? '#f59e0b' : ovo.cor};">
-                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                                <span style="font-size: 32px;">${ovo.emoji}</span>
-                                <div>
-                                    <h4 style="color: ${ovo.cor === 'gradient' ? '#f59e0b' : ovo.cor};">${ovo.nome}</h4>
-                                    <p style="font-size: 12px; color: var(--text-tertiary);">${ovo.pontos} pontos</p>
+                <div class="panel-content">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                        ${Object.entries(configOvos).map(([key, ovo]) => {
+    const stats = codigosStats[key] || { total: 0, usados: 0 };
+    const disponiveis = stats.total - stats.usados;
+    const percentual = stats.total > 0 ? Math.round((stats.usados / stats.total) * 100) : 0;
+
+    return `
+                                <div style="background: var(--bg-white); padding: 20px; border-radius: 12px; border-left: 4px solid ${ovo.cor === 'gradient' ? '#f59e0b' : ovo.cor};">
+                                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                                        <span style="font-size: 32px;">${ovo.emoji}</span>
+                                        <div>
+                                            <h4 style="color: ${ovo.cor === 'gradient' ? '#f59e0b' : ovo.cor}; margin: 0;">${ovo.nome}</h4>
+                                            <p style="font-size: 12px; color: var(--text-tertiary); margin: 0;">${ovo.pontos} pontos</p>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px;">
+                                        <span>Total: <strong>${stats.total}</strong></span>
+                                        <span style="color: var(--success);">Disp.: <strong>${disponiveis}</strong></span>
+                                        <span style="color: var(--danger);">Usados: <strong>${stats.usados}</strong></span>
+                                    </div>
+                                    <div style="width: 100%; height: 6px; background: var(--bg-secondary); border-radius: 3px; overflow: hidden;">
+                                        <div style="width: ${percentual}%; height: 100%; background: ${ovo.cor === 'gradient' ? 'linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3)' : ovo.cor}; transition: width 0.3s;"></div>
+                                    </div>
+                                    <div style="font-size: 11px; color: var(--text-tertiary); text-align: center; margin-top: 4px;">${percentual}% utilizado</div>
                                 </div>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; font-size: 14px;">
-                                <span>Total: <strong>${codigosStats[key]?.total || 0}</strong></span>
-                                <span style="color: var(--success);">Disp.: <strong>${(codigosStats[key]?.total || 0) - (codigosStats[key]?.usados || 0)}</strong></span>
-                                <span style="color: var(--danger);">Usados: <strong>${codigosStats[key]?.usados || 0}</strong></span>
-                            </div>
-                        </div>
-                    `).join('')}
+                            `;
+  }).join('')}
+                    </div>
+                </div>
+            </div>
+
+            <!-- LISTA COMPLETA DE CÓDIGOS -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <i class="fa-solid fa-list"></i> Lista de Códigos
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <select class="filter-select" id="filtroTipoCodigo" onchange="filtrarListaCodigos()" style="width: auto; min-width: 150px;">
+                            <option value="todos">Todos os tipos</option>
+                            ${Object.entries(configOvos).map(([key, ovo]) => `<option value="${key}">${ovo.nome}</option>`).join('')}
+                        </select>
+                        <select class="filter-select" id="filtroStatusCodigo" onchange="filtrarListaCodigos()" style="width: auto; min-width: 120px;">
+                            <option value="todos">Todos</option>
+                            <option value="disponivel">Disponíveis</option>
+                            <option value="usado">Usados</option>
+                        </select>
+                        <button class="btn btn-secondary btn-sm" onclick="exportarCodigos()">
+                            <i class="fa-solid fa-download"></i> Exportar
+                        </button>
+                    </div>
+                </div>
+                <div class="panel-content">
+                    <div id="listaCodigosContainer" style="max-height: 600px; overflow-y: auto;">
+                        <p style="color: var(--text-tertiary); text-align: center; padding: 40px;">
+                            <i class="fa-solid fa-spinner fa-spin"></i> Carregando códigos...
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
     `;
 }
 
+// Variável para armazenar todos os códigos carregados
+let todosCodigosLista = [];
+
+// Função para carregar e exibir a lista de códigos
+async function carregarListaCodigos() {
+  const container = document.getElementById('listaCodigosContainer');
+  if (!container) return;
+
+  container.innerHTML = '<p style="color: var(--text-tertiary); text-align: center; padding: 40px;"><i class="fa-solid fa-spinner fa-spin"></i> Carregando códigos...</p>';
+
+  const { data, error } = await supabaseClient
+    .from('codigos_ovos')
+    .select('*, usuario:usado_por(forum_name, habbo_name)')
+    .order('tipo', { ascending: true })
+    .order('codigo', { ascending: true });
+
+  if (error) {
+    container.innerHTML = `<p style="color: var(--danger); text-align: center; padding: 40px;">Erro ao carregar: ${error.message}</p>`;
+    return;
+  }
+
+  todosCodigosLista = data || [];
+  filtrarListaCodigos();
+}
+
+// Função para filtrar e renderizar a lista
+function filtrarListaCodigos() {
+  const container = document.getElementById('listaCodigosContainer');
+  if (!container) return;
+
+  const filtroTipo = document.getElementById('filtroTipoCodigo')?.value || 'todos';
+  const filtroStatus = document.getElementById('filtroStatusCodigo')?.value || 'todos';
+
+  let codigosFiltrados = todosCodigosLista;
+
+  if (filtroTipo !== 'todos') {
+    codigosFiltrados = codigosFiltrados.filter(c => c.tipo === filtroTipo);
+  }
+
+  if (filtroStatus === 'disponivel') {
+    codigosFiltrados = codigosFiltrados.filter(c => !c.usado);
+  } else if (filtroStatus === 'usado') {
+    codigosFiltrados = codigosFiltrados.filter(c => c.usado);
+  }
+
+  if (codigosFiltrados.length === 0) {
+    container.innerHTML = `
+            <div class="empty-state" style="padding: 40px;">
+                <i class="fa-solid fa-inbox" style="font-size: 48px; opacity: 0.3;"></i>
+                <h3>Nenhum código encontrado</h3>
+                <p>Tente ajustar os filtros ou gere novos códigos.</p>
+            </div>
+        `;
+    return;
+  }
+
+  container.innerHTML = `
+        <div style="display: grid; gap: 8px;">
+            ${codigosFiltrados.map(c => {
+    const config = configOvos[c.tipo];
+    return `
+                    <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--bg-white); border-radius: 8px; border: 1px solid var(--border-light); ${c.usado ? 'opacity: 0.6;' : ''}">
+                        <span style="font-size: 24px;">${config?.emoji || '🥚'}</span>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <code style="background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; font-size: 14px; font-weight: 600; letter-spacing: 1px;">${c.codigo}</code>
+                                <span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: ${config?.cor === 'gradient' ? 'linear-gradient(90deg, #ff6b6b, #feca57)' : config?.cor}; color: white; font-weight: 600;">
+                                    ${config?.nome || c.tipo}
+                                </span>
+                                ${c.usado ? '<span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--danger); color: white; font-weight: 600;"><i class="fa-solid fa-check"></i> USADO</span>' : '<span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--success); color: white; font-weight: 600;"><i class="fa-solid fa-unlock"></i> DISPONÍVEL</span>'}
+                            </div>
+                            ${c.usado ? `
+                                <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 4px;">
+                                    <i class="fa-solid fa-user"></i> Usado por: <strong>${c.usuario?.habbo_name || 'Desconhecido'}</strong> 
+                                    <span style="margin: 0 8px;">•</span>
+                                    <i class="fa-solid fa-calendar"></i> ${new Date(c.usado_em).toLocaleDateString('pt-BR')} às ${new Date(c.usado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="btn-icon btn-view" onclick="copiarCodigo('${c.codigo}')" title="Copiar código">
+                                <i class="fa-solid fa-copy"></i>
+                            </button>
+                            ${!c.usado ? `
+                                <button class="btn-icon btn-reject" onclick="excluirCodigo('${c.id}', '${c.codigo}')" title="Excluir código">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+  }).join('')}
+        </div>
+        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-light); text-align: center; color: var(--text-tertiary); font-size: 13px;">
+            Mostrando ${codigosFiltrados.length} de ${todosCodigosLista.length} códigos
+        </div>
+    `;
+}
+
+// Copiar código para clipboard
+function copiarCodigo(codigo) {
+  navigator.clipboard.writeText(codigo).then(() => {
+    showToast('Copiado!', `Código ${codigo} copiado para a área de transferência.`, 'success');
+  }).catch(() => {
+    // Fallback para navegadores antigos
+    const textarea = document.createElement('textarea');
+    textarea.value = codigo;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    showToast('Copiado!', `Código ${codigo} copiado.`, 'success');
+  });
+}
+
+// Excluir código não usado
+async function excluirCodigo(id, codigo) {
+  if (!confirm(`Tem certeza que deseja excluir o código ${codigo}?\nEsta ação não pode ser desfeita.`)) return;
+
+  const { error } = await supabaseClient
+    .from('codigos_ovos')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    showToast('Erro', error.message, 'error');
+    return;
+  }
+
+  showToast('Excluído!', 'Código removido com sucesso.', 'success');
+  await carregarListaCodigos();
+  await carregarCodigosStats();
+}
+
+// Exportar códigos para CSV
+function exportarCodigos() {
+  const filtroTipo = document.getElementById('filtroTipoCodigo')?.value || 'todos';
+  const filtroStatus = document.getElementById('filtroStatusCodigo')?.value || 'todos';
+
+  let codigosExportar = todosCodigosLista;
+
+  if (filtroTipo !== 'todos') {
+    codigosExportar = codigosExportar.filter(c => c.tipo === filtroTipo);
+  }
+  if (filtroStatus === 'disponivel') {
+    codigosExportar = codigosExportar.filter(c => !c.usado);
+  } else if (filtroStatus === 'usado') {
+    codigosExportar = codigosExportar.filter(c => c.usado);
+  }
+
+  let csv = 'Código,Tipo,Status,Usado Por,Data Uso\n';
+  codigosExportar.forEach(c => {
+    const config = configOvos[c.tipo];
+    csv += `"${c.codigo}","${config?.nome || c.tipo}","${c.usado ? 'Usado' : 'Disponível'}","${c.usuario?.habbo_name || '-'}","${c.usado_em ? new Date(c.usado_em).toLocaleString('pt-BR') : '-'}"\n`;
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `codigos-pascoa-${new Date().toISOString().split('T')[0]}.csv`;
+  link.click();
+
+  showToast('Exportado!', `${codigosExportar.length} códigos exportados.`, 'success');
+}
+
+// Atualizar a função mudarAbaAdmin para carregar códigos quando necessário
+function mudarAbaAdmin(aba) {
+  abaAdminAtiva = aba;
+  renderizarAdmin();
+
+  if (aba === 'codigos') {
+    carregarListaCodigos();
+  }
+}
+
 // ==========================================
 // ADMIN - AÇÕES
 // ==========================================
 async function adicionarNovoPremio(e) {
-    e.preventDefault();
-    
-    const nome = document.getElementById('novoPremioNome')?.value;
-    const categoria = document.getElementById('novoPremioCategoria')?.value;
-    const icone = document.getElementById('novoPremioIcone')?.value;
-    const estoque = parseInt(document.getElementById('novoPremioEstoque')?.value);
-    const descricao = document.getElementById('novoPremioDescricao')?.value;
+  e.preventDefault();
 
-    const { data, error } = await supabaseClient
-        .from('premios')
-        .insert([{ nome, categoria, icone, estoque, descricao, ativo: true }])
-        .select()
-        .single();
+  const nome = document.getElementById('novoPremioNome')?.value;
+  const categoria = document.getElementById('novoPremioCategoria')?.value;
+  const icone = document.getElementById('novoPremioIcone')?.value;
+  const estoque = parseInt(document.getElementById('novoPremioEstoque')?.value);
+  const descricao = document.getElementById('novoPremioDescricao')?.value;
 
-    if (error) {
-        showToast('Erro', error.message, 'error');
-        return;
-    }
+  const { data, error } = await supabaseClient
+    .from('premios')
+    .insert([{ nome, categoria, icone, estoque, descricao, ativo: true }])
+    .select()
+    .single();
 
-    catalogoPremios[categoria].push({
-        id: data.id, nome, descricao, icone, estoque, categoria
-    });
+  if (error) {
+    showToast('Erro', error.message, 'error');
+    return;
+  }
 
-    showToast('Sucesso!', 'Prêmio adicionado!', 'success');
-    e.target.reset();
-    renderizarAbaAdmin();
-    renderizarPremios();
+  catalogoPremios[categoria].push({
+    id: data.id, nome, descricao, icone, estoque, categoria
+  });
+
+  showToast('Sucesso!', 'Prêmio adicionado!', 'success');
+  e.target.reset();
+  renderizarAbaAdmin();
+  renderizarPremios();
 }
 
 async function ajustarEstoque(premioId, quantidade) {
-    const premio = findPremioById(premioId);
-    if (!premio) return;
-    
-    const novoEstoque = Math.max(0, premio.estoque + quantidade);
-    
-    const { error } = await supabaseClient
-        .from('premios')
-        .update({ estoque: novoEstoque })
-        .eq('id', premioId);
+  const premio = findPremioById(premioId);
+  if (!premio) return;
 
-    if (error) {
-        showToast('Erro', error.message, 'error');
-        return;
-    }
+  const novoEstoque = Math.max(0, premio.estoque + quantidade);
 
-    premio.estoque = novoEstoque;
-    renderizarAbaAdmin();
-    renderizarPremios();
-    showToast('Estoque Atualizado', `Novo estoque: ${novoEstoque}`, 'success');
+  const { error } = await supabaseClient
+    .from('premios')
+    .update({ estoque: novoEstoque })
+    .eq('id', premioId);
+
+  if (error) {
+    showToast('Erro', error.message, 'error');
+    return;
+  }
+
+  premio.estoque = novoEstoque;
+  renderizarAbaAdmin();
+  renderizarPremios();
+  showToast('Estoque Atualizado', `Novo estoque: ${novoEstoque}`, 'success');
 }
 
 async function removerPremio(premioId) {
-    if (!confirm('Tem certeza que deseja remover este prêmio?')) return;
-    
-    await supabaseClient
-        .from('premios')
-        .update({ ativo: false })
-        .eq('id', premioId);
+  if (!confirm('Tem certeza que deseja remover este prêmio?')) return;
 
-    for (const cat in catalogoPremios) {
-        const idx = catalogoPremios[cat].findIndex(p => p.id === premioId);
-        if (idx !== -1) {
-            catalogoPremios[cat].splice(idx, 1);
-            break;
-        }
+  await supabaseClient
+    .from('premios')
+    .update({ ativo: false })
+    .eq('id', premioId);
+
+  for (const cat in catalogoPremios) {
+    const idx = catalogoPremios[cat].findIndex(p => p.id === premioId);
+    if (idx !== -1) {
+      catalogoPremios[cat].splice(idx, 1);
+      break;
     }
+  }
 
-    renderizarAbaAdmin();
-    renderizarPremios();
-    showToast('Prêmio Removido', 'O prêmio foi desativado.', 'success');
+  renderizarAbaAdmin();
+  renderizarPremios();
+  showToast('Prêmio Removido', 'O prêmio foi desativado.', 'success');
 }
 
 async function aprovarResgate(id) {
-    const resgate = todosResgates.find(r => r.id === id);
-    if (!resgate) return;
+  const resgate = todosResgates.find(r => r.id === id);
+  if (!resgate) return;
 
-    await supabaseClient
-        .from('resgates')
-        .update({ status: 'aprovado', aprovado_em: new Date().toISOString() })
-        .eq('id', id);
+  await supabaseClient
+    .from('resgates')
+    .update({ status: 'aprovado', aprovado_em: new Date().toISOString() })
+    .eq('id', id);
 
-    // Atualizar pontos
-    await supabaseClient.rpc('adicionar_pontos_usuario', {
-        p_habbo_name: resgate.habboName,
-        p_pontos: resgate.pontos
-    });
+  // Atualizar pontos
+  await supabaseClient.rpc('adicionar_pontos_usuario', {
+    p_habbo_name: resgate.habboName,
+    p_pontos: resgate.pontos
+  });
 
-    // Decrementar estoque
-    if (resgate.premio) {
-        await supabaseClient.rpc('decrementar_estoque', { premio_id: resgate.premio.id });
-        const p = findPremioById(resgate.premio.id);
-        if (p) p.estoque--;
-    }
+  // Decrementar estoque
+  if (resgate.premio) {
+    await supabaseClient.rpc('decrementar_estoque', { premio_id: resgate.premio.id });
+    const p = findPremioById(resgate.premio.id);
+    if (p) p.estoque--;
+  }
 
-    resgate.status = 'aprovado';
-    renderizarAbaAdmin();
-    atualizarStats();
-    renderizarMeusResgates();
-    renderizarPremios();
-    showToast('Aprovado!', 'Resgate aprovado com sucesso.', 'success');
+  resgate.status = 'aprovado';
+  renderizarAbaAdmin();
+  atualizarStats();
+  renderizarMeusResgates();
+  renderizarPremios();
+  showToast('Aprovado!', 'Resgate aprovado com sucesso.', 'success');
 }
 
 async function rejeitarResgate(id) {
-    const resgate = todosResgates.find(r => r.id === id);
-    if (!resgate) return;
-    
-    const motivo = prompt('Motivo da rejeição (opcional):');
-    if (motivo === null) return;
+  const resgate = todosResgates.find(r => r.id === id);
+  if (!resgate) return;
 
-    await supabaseClient
-        .from('resgates')
-        .update({ 
-            status: 'rejeitado', 
-            rejeitado_em: new Date().toISOString(),
-            motivo_rejeicao: motivo 
-        })
-        .eq('id', id);
+  const motivo = prompt('Motivo da rejeição (opcional):');
+  if (motivo === null) return;
 
-    // Liberar código
-    await supabaseClient
-        .from('codigos_ovos')
-        .update({ usado: false, usado_por: null, usado_em: null })
-        .eq('codigo', resgate.codigo);
+  await supabaseClient
+    .from('resgates')
+    .update({
+      status: 'rejeitado',
+      rejeitado_em: new Date().toISOString(),
+      motivo_rejeicao: motivo
+    })
+    .eq('id', id);
 
-    resgate.status = 'rejeitado';
-    renderizarAbaAdmin();
-    showToast('Rejeitado', 'Resgate rejeitado e código liberado.', 'error');
+  // Liberar código
+  await supabaseClient
+    .from('codigos_ovos')
+    .update({ usado: false, usado_por: null, usado_em: null })
+    .eq('codigo', resgate.codigo);
+
+  resgate.status = 'rejeitado';
+  renderizarAbaAdmin();
+  showToast('Rejeitado', 'Resgate rejeitado e código liberado.', 'error');
 }
 
 function verDetalhesResgate(id) {
-    const resgate = todosResgates.find(r => r.id === id);
-    if (!resgate) return;
+  const resgate = todosResgates.find(r => r.id === id);
+  if (!resgate) return;
 
-    const content = document.getElementById('viewModalContent');
-    if (!content) return;
-    
-    content.innerHTML = `
+  const content = document.getElementById('viewModalContent');
+  if (!content) return;
+
+  content.innerHTML = `
         <div style="text-align: center; margin-bottom: 24px;">
             <div style="font-size: 64px; margin-bottom: 12px;">${resgate.emoji}</div>
             <div style="height: 150px; display: flex; align-items: flex-end; justify-content: center; margin-bottom: 12px;">
@@ -1353,10 +1730,45 @@ function verDetalhesResgate(id) {
             </div>
         </div>
 
+        <!-- LINK DE COMPROVAÇÃO DESTACADO -->
+        ${resgate.comprovante_url ? `
+            <div style="background: linear-gradient(135deg, var(--primary-light), var(--primary)); padding: 20px; border-radius: 12px; margin-bottom: 16px; color: white;">
+                <h4 style="margin-bottom: 12px; font-size: 14px; text-transform: uppercase; opacity: 0.9;">
+                    <i class="fa-solid fa-camera"></i> Comprovação (Print)
+                </h4>
+                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; margin-bottom: 12px; word-break: break-all; font-family: monospace; font-size: 13px;">
+                    ${resgate.comprovante_url}
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <a href="${resgate.comprovante_url}" target="_blank" class="btn btn-primary" style="flex: 1; background: white; color: var(--primary); text-decoration: none;">
+                        <i class="fa-solid fa-external-link-alt"></i> Abrir Link
+                    </a>
+                    <button class="btn btn-secondary" style="flex: 1; background: rgba(255,255,255,0.3); color: white; border: none;" onclick="copiarTexto('${resgate.comprovante_url}')">
+                        <i class="fa-solid fa-copy"></i> Copiar Link
+                    </button>
+                </div>
+                <!-- Preview da imagem -->
+                <div style="margin-top: 12px; text-align: center;">
+                    <img src="${resgate.comprovante_url}" 
+                         style="max-width: 100%; max-height: 300px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.3); background: white;" 
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+                         alt="Preview da comprovação">
+                    <p style="display: none; font-size: 12px; opacity: 0.8; margin-top: 8px;">
+                        <i class="fa-solid fa-exclamation-triangle"></i> Não foi possível carregar a prévia, mas o link está válido.
+                    </p>
+                </div>
+            </div>
+        ` : `
+            <div style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin-bottom: 16px; text-align: center; color: var(--text-tertiary);">
+                <i class="fa-solid fa-image" style="font-size: 32px; margin-bottom: 8px; opacity: 0.5;"></i>
+                <p>Sem link de comprovação</p>
+            </div>
+        `}
+
         ${resgate.descricao ? `
             <div style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h4 style="margin-bottom: 8px; font-size: 14px; text-transform: uppercase; color: var(--text-tertiary);">Descrição</h4>
-                <p style="font-size: 14px; color: var(--text-secondary);">${resgate.descricao}</p>
+                <h4 style="margin-bottom: 8px; font-size: 14px; text-transform: uppercase; color: var(--text-tertiary);">Descrição do Usuário</h4>
+                <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">${resgate.descricao}</p>
             </div>
         ` : ''}
 
@@ -1368,87 +1780,94 @@ function verDetalhesResgate(id) {
             ` : ''}
         </div>
     `;
-    
-    document.getElementById('viewModal')?.classList.add('active');
+
+  document.getElementById('viewModal')?.classList.add('active');
+}
+
+// Função auxiliar para copiar texto
+function copiarTexto(texto) {
+  navigator.clipboard.writeText(texto).then(() => {
+    showToast('Copiado!', 'Link copiado para a área de transferência.', 'success');
+  });
 }
 
 function fecharViewModal() {
-    document.getElementById('viewModal')?.classList.remove('active');
+  document.getElementById('viewModal')?.classList.remove('active');
 }
 
 function abrirModalNovoCodigo() {
-    document.getElementById('codigoModal')?.classList.add('active');
+  document.getElementById('codigoModal')?.classList.add('active');
 }
 
 function fecharCodigoModal() {
-    document.getElementById('codigoModal')?.classList.remove('active');
-    document.getElementById('formCodigo')?.reset();
+  document.getElementById('codigoModal')?.classList.remove('active');
+  document.getElementById('formCodigo')?.reset();
 }
 
 async function gerarCodigos(e) {
-    e.preventDefault();
-    
-    const tipo = document.getElementById('codigoTipo')?.value;
-    const quantidade = parseInt(document.getElementById('codigoQuantidade')?.value);
-    
-    // Gerar códigos únicos
-    const novosCodigos = [];
-    for (let i = 0; i < quantidade; i++) {
-        const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-        novosCodigos.push({
-            codigo: `SRC-${tipo.toUpperCase()}-${random}`,
-            tipo: tipo
-        });
-    }
-    
-    const { error } = await supabaseClient
-        .from('codigos_ovos')
-        .insert(novosCodigos);
-    
-    if (error) {
-        showToast('Erro', error.message, 'error');
-        return;
-    }
-    
-    showToast('Sucesso!', `${quantidade} códigos gerados!`, 'success');
-    fecharCodigoModal();
-    await carregarCodigosStats();
-    renderizarAbaAdmin();
+  e.preventDefault();
+
+  const tipo = document.getElementById('codigoTipo')?.value;
+  const quantidade = parseInt(document.getElementById('codigoQuantidade')?.value);
+
+  // Gerar códigos únicos
+  const novosCodigos = [];
+  for (let i = 0; i < quantidade; i++) {
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+    novosCodigos.push({
+      codigo: `SRC-${tipo.toUpperCase()}-${random}`,
+      tipo: tipo
+    });
+  }
+
+  const { error } = await supabaseClient
+    .from('codigos_ovos')
+    .insert(novosCodigos);
+
+  if (error) {
+    showToast('Erro', error.message, 'error');
+    return;
+  }
+
+  showToast('Sucesso!', `${quantidade} códigos gerados!`, 'success');
+  fecharCodigoModal();
+  await carregarCodigosStats();
+  renderizarAbaAdmin();
 }
 
 // ==========================================
 // UTILITÁRIOS
 // ==========================================
 function findPremioById(id) {
-    for (const cat in catalogoPremios) {
-        const p = catalogoPremios[cat].find(x => x.id === id);
-        if (p) return p;
-    }
-    return null;
+  for (const cat in catalogoPremios) {
+    const p = catalogoPremios[cat].find(x => x.id === id);
+    if (p) return p;
+  }
+  return null;
 }
 
 function showToast(title, message, type = 'success') {
-    const toast = document.getElementById('toast');
-    if (!toast) return;
-    
-    toast.className = `toast ${type}`;
-    
-    const titleEl = document.getElementById('toastTitle');
-    const msgEl = document.getElementById('toastMessage');
-    
-    if (titleEl) titleEl.textContent = title;
-    if (msgEl) msgEl.textContent = message;
-    
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 3000);
+  const toast = document.getElementById('toast');
+  if (!toast) return;
+
+  toast.className = `toast ${type}`;
+
+  const titleEl = document.getElementById('toastTitle');
+  const msgEl = document.getElementById('toastMessage');
+
+  if (titleEl) titleEl.textContent = title;
+  if (msgEl) msgEl.textContent = message;
+
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
 // ==========================================
 // INICIALIZAÇÃO
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
-    initSupabase();
-    if (await inicializarUsuario()) {
-        showSection('guia');
-    }
+  initSupabase();
+  if (await inicializarUsuario()) {
+    showSection('guia');
+  }
 });
