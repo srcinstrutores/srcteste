@@ -1,31 +1,103 @@
 // ==========================================
-// CONFIGURAÇÃO
+// CONFIGURAÇÃO DO SUPABASE
 // ==========================================
 const SUPABASE_URL = 'https://gjxlapydpafwvyohovhj.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqeGxhcHlkcGFmd3Z5b2hvdmhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDc3NTIsImV4cCI6MjA4NzcyMzc1Mn0.ni9szYqdrFWz3HcwYuOZaBFgcFddDoYSyZEakSQho-c';
 
 let supabaseClient = null;
 
-// Config dos ovos (apenas metadados, códigos vêm do Supabase)
+// ==========================================
+// CONFIGURAÇÃO DOS OVOS (HARDCODED)
+// ==========================================
 const configOvos = {
-    comum: { id: 'comum', nome: 'Ovo Comum', emoji: '🥚', cor: '#8B4513', pontos: 5, limite: Infinity, desc: 'Fácil de encontrar' },
-    incomum: { id: 'incomum', nome: 'Ovo Incomum', emoji: '🥚', cor: '#22c55e', pontos: 10, limite: 10, desc: 'Requer atenção' },
-    raro: { id: 'raro', nome: 'Ovo Raro', emoji: '🥚', cor: '#3b82f6', pontos: 30, limite: 5, desc: 'Bem escondido', chancePremio: 0.1 },
-    epico: { id: 'epico', nome: 'Ovo Épico', emoji: '🥚', cor: '#a855f7', pontos: 50, limite: 1, desc: 'Extremamente raro', chancePremio: 0.4 },
-    lendario: { id: 'lendario', nome: 'Ovo Lendário', emoji: '🥚', cor: '#f59e0b', pontos: 100, limite: 1, desc: 'Quase impossível', chancePremio: 0.6 },
-    coelhao: { id: 'coelhao', nome: 'Coelhão', emoji: '🐰', cor: 'gradient', pontos: 500, limite: 1, desc: 'ÚNICO! Grande prêmio garantido', premioGarantido: true }
+    comum: {
+        id: 'comum',
+        nome: 'Ovo Comum',
+        emoji: '🥚',
+        cor: '#8B4513',
+        quantidadeTotal: 50,
+        pontos: 5,
+        limitePorUsuario: Infinity,
+        descricao: 'Ovos espalhados por toda a companhia. Fáceis de encontrar em páginas ou quartos comuns.',
+        chancePremio: 0
+    },
+    incomum: {
+        id: 'incomum',
+        nome: 'Ovo Incomum',
+        emoji: '🥚',
+        cor: '#22c55e',
+        quantidadeTotal: 25,
+        pontos: 10,
+        limitePorUsuario: 10,
+        descricao: 'Ovos escondidos em locais que requerem mais atenção. Valor médio de recompensa.',
+        chancePremio: 0
+    },
+    raro: {
+        id: 'raro',
+        nome: 'Ovo Raro',
+        emoji: '🥚',
+        cor: '#3b82f6',
+        quantidadeTotal: 15,
+        pontos: 30,
+        limitePorUsuario: 5,
+        descricao: 'Ovos bem escondidos. Requer dedicação para encontrar. Boas recompensas!',
+        chancePremio: 0.1
+    },
+    epico: {
+        id: 'epico',
+        nome: 'Ovo Épico',
+        emoji: '🥚',
+        cor: '#a855f7',
+        quantidadeTotal: 7,
+        pontos: 50,
+        limitePorUsuario: 1,
+        descricao: 'Ovos extremamente raros! Grande chance de ganhar prêmios épicos.',
+        chancePremio: 0.4
+    },
+    lendario: {
+        id: 'lendario',
+        nome: 'Ovo Lendário',
+        emoji: '🥚',
+        cor: '#f59e0b',
+        quantidadeTotal: 3,
+        pontos: 100,
+        limitePorUsuario: 1,
+        descricao: 'Ovos quase impossíveis de encontrar! Alta chance de prêmios lendários.',
+        chancePremio: 0.6
+    },
+    coelhao: {
+        id: 'coelhao',
+        nome: 'Coelhão',
+        emoji: '🐰',
+        cor: 'gradient',
+        quantidadeTotal: 1,
+        pontos: 500,
+        limitePorUsuario: 1,
+        descricao: 'O GRANDE PRÊMIO! Existe apenas UM na companhia inteira. Prêmio único garantido!',
+        premioGarantido: true,
+        chancePremio: 1
+    }
 };
 
-// Variáveis globais
-let usuarioAtual = null;
+// ==========================================
+// VARIÁVEIS GLOBAIS
+// ==========================================
+const CARGOS_IGNORADOS = ['fiscalizador', 'diretor', 'vice-presidente', 'presidente'];
+
 let membros = [];
-let catalogoPremios = { comum: [], incomum: [], raro: [], epico: [], lendario: [] };
+let usuarioAtual = null;
 let todosResgates = [];
 let resgatePendente = null;
-let codigosCache = {}; // Cache local dos códigos
 let tipoRankingAtual = 'pontos';
-
-const CARGOS_IGNORADOS = ['fiscalizador', 'diretor', 'vice-presidente', 'presidente'];
+let abaAdminAtiva = 'resgates';
+let catalogoPremios = {
+    comum: [],
+    incomum: [],
+    raro: [],
+    epico: [],
+    lendario: []
+};
+let codigosStats = {};
 
 // ==========================================
 // INICIALIZAÇÃO
@@ -37,7 +109,7 @@ function initSupabase() {
 }
 
 // ==========================================
-// AUTENTICAÇÃO
+// AUTENTICAÇÃO E USUÁRIO
 // ==========================================
 async function pegarUsernameForum() {
     try {
@@ -51,7 +123,7 @@ async function pegarUsernameForum() {
             localStorage.setItem("forumUser", username);
             return username;
         }
-        throw new Error('Não autenticado');
+        throw new Error('Não autenticado no fórum');
     } catch (err) {
         const fallback = localStorage.getItem("forumUser");
         if (fallback) return fallback;
@@ -63,18 +135,19 @@ async function inicializarUsuario() {
     try {
         const forumName = await pegarUsernameForum();
         
-        // Buscar membros
+        // Buscar membros da planilha
         const response = await fetch('https://script.google.com/macros/s/AKfycbzhJdbeZfxkHgh3cQrK_YlhBCuhZyLhM_9jYkAnCPmbz-aYpv7845740KySuhjTzdIb/exec');
         const data = await response.json();
+        
         membros = data.filter(m => !CARGOS_IGNORADOS.includes(m.cargo.toLowerCase()));
         
         const membro = membros.find(m => m.nick === forumName);
         if (!membro) {
-            mostrarErro('Você não é membro autorizado.');
+            mostrarErroLogin('Você não é membro autorizado desta companhia.');
             return false;
         }
 
-        // Buscar/criar no Supabase
+        // Buscar ou criar no Supabase
         let { data: userData } = await supabaseClient
             .from('usuarios')
             .select('*')
@@ -82,11 +155,12 @@ async function inicializarUsuario() {
             .single();
 
         if (!userData) {
+            // Criar novo usuário - ???JUKA vira admin automaticamente
             const { data: newUser } = await supabaseClient
                 .from('usuarios')
                 .insert([{
                     forum_name: forumName,
-                    habbo_name: forumName, // Inicialmente igual, pode editar depois
+                    habbo_name: forumName,
                     pontos: 0,
                     grupo_permissao: forumName === '???JUKA' ? 'admin' : 'usuario',
                     ovos_resgatados: { comum: 0, incomum: 0, raro: 0, epico: 0, lendario: 0, coelhao: 0 }
@@ -100,100 +174,88 @@ async function inicializarUsuario() {
             id: userData.id,
             forumName: userData.forum_name,
             habboName: userData.habbo_name,
-            nome: userData.habbo_name, // Exibe Habbo name
+            nome: userData.habbo_name,
             cargo: membro.cargo,
+            cargoOriginal: membro.cargoOriginal || membro.cargo,
             pontos: userData.pontos || 0,
             ovosResgatados: userData.ovos_resgatados || {},
             historico: [],
+            premiosGanhos: [],
             grupoPermissao: userData.grupo_permissao || 'usuario'
         };
 
-        await carregarDados();
+        // Atualizar UI com dados do usuário
+        atualizarUIUsuario();
+        
+        // Carregar dados
+        await carregarPremios();
+        await carregarResgates();
+        await carregarCodigosStats();
+        
+        // Renderizar conteúdo inicial
+        renderizarGuiaOvos();
+        renderizarPremios();
+        atualizarStats();
+        renderizarMeusResgates();
+        
+        // Mostrar seção admin se for admin
+        if (isAdmin()) {
+            document.getElementById('adminNavSection').style.display = 'block';
+        }
+        
         return true;
         
     } catch (err) {
-        mostrarErro('Erro de autenticação: ' + err.message);
+        console.error(err);
+        mostrarErroLogin('Erro de autenticação: ' + err.message);
         return false;
     }
 }
 
-async function carregarDados() {
-    await carregarPremios();
-    await carregarResgates();
-    await carregarCodigosStats(); // Estatísticas dos códigos
+function atualizarUIUsuario() {
+    if (!usuarioAtual) return;
+    
+    // User badge (desktop)
+    const userBadge = document.getElementById('userBadge');
+    const userAvatar = document.getElementById('userAvatar');
+    const userName = document.getElementById('userName');
+    const userRole = document.getElementById('userRole');
+    
+    if (userBadge) userBadge.style.display = 'flex';
+    if (userAvatar) userAvatar.innerHTML = getAvatarHeadHtml(usuarioAtual.habboName, '48px');
+    if (userName) userName.textContent = usuarioAtual.habboName;
+    if (userRole) userRole.textContent = usuarioAtual.cargoOriginal || usuarioAtual.cargo;
+    
+    // Mobile profile
+    const mobileProfile = document.getElementById('mobileProfile');
+    const mobileAvatar = document.getElementById('mobileProfileAvatar');
+    const mobileName = document.getElementById('mobileUserName');
+    const mobileRole = document.getElementById('mobileUserRole');
+    
+    if (mobileProfile) mobileProfile.style.display = 'block';
+    if (mobileAvatar) mobileAvatar.innerHTML = getAvatarHeadHtml(usuarioAtual.habboName, '56px');
+    if (mobileName) mobileName.textContent = usuarioAtual.habboName;
+    if (mobileRole) mobileRole.textContent = usuarioAtual.cargoOriginal || usuarioAtual.cargo;
 }
 
-function mostrarErro(msg) {
+function mostrarErroLogin(mensagem) {
     document.body.innerHTML = `
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#1e40af,#3b82f6);color:white;font-family:Inter,sans-serif;text-align:center;padding:20px;">
-            <div style="font-size:64px;margin-bottom:20px;">🚫</div>
-            <h1 style="font-size:24px;margin-bottom:16px;">Acesso Negado</h1>
-            <p>${msg}</p>
-            <button onclick="location.reload()" style="margin-top:24px;padding:12px 24px;background:white;color:#1e40af;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Tentar Novamente</button>
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; font-family: 'Inter', sans-serif; text-align: center; padding: 20px;">
+            <div style="font-size: 64px; margin-bottom: 20px;">🚫</div>
+            <h1 style="font-size: 24px; margin-bottom: 16px; font-weight: 700;">Acesso Negado</h1>
+            <p style="font-size: 16px; opacity: 0.9; max-width: 400px; line-height: 1.6;">${mensagem}</p>
+            <button onclick="window.location.reload()" style="margin-top: 24px; padding: 12px 24px; background: white; color: #1e40af; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">Tentar Novamente</button>
         </div>
     `;
 }
 
 // ==========================================
-// CÓDIGOS - AGORA DO SUPABASE
-// ==========================================
-async function verificarCodigoNoSupabase(codigo) {
-    const { data, error } = await supabaseClient
-        .from('codigos_ovos')
-        .select('*')
-        .eq('codigo', codigo.toUpperCase())
-        .single();
-    
-    if (error || !data) return { valido: false, motivo: 'Código não encontrado' };
-    if (data.usado) return { valido: false, motivo: 'Código já foi usado' };
-    
-    return { 
-        valido: true, 
-        tipo: data.tipo,
-        codigoId: data.id 
-    };
-}
-
-async function marcarCodigoUsado(codigoId) {
-    const { error } = await supabaseClient.rpc('usar_codigo', {
-        p_codigo: null, // Não usamos aqui, usamos update direto
-        p_usuario_id: usuarioAtual.id
-    });
-    
-    // Ou faça update direto:
-    await supabaseClient
-        .from('codigos_ovos')
-        .update({ 
-            usado: true, 
-            usado_por: usuarioAtual.id, 
-            usado_em: new Date().toISOString() 
-        })
-        .eq('id', codigoId);
-}
-
-async function carregarCodigosStats() {
-    // Buscar estatísticas de códigos para o admin
-    if (!isAdmin()) return;
-    
-    const { data } = await supabaseClient
-        .from('codigos_ovos')
-        .select('tipo, usado');
-    
-    if (data) {
-        codigosCache = {};
-        data.forEach(c => {
-            if (!codigosCache[c.tipo]) codigosCache[c.tipo] = { total: 0, usados: 0 };
-            codigosCache[c.tipo].total++;
-            if (c.usado) codigosCache[c.tipo].usados++;
-        });
-    }
-}
-
-// ==========================================
-// PRÊMIOS
+// CARREGAMENTO DE DADOS
 // ==========================================
 async function carregarPremios() {
-    const { data } = await supabaseClient
+    if (!supabaseClient) return;
+    
+    const { data, error } = await supabaseClient
         .from('premios')
         .select('*')
         .eq('ativo', true)
@@ -216,10 +278,9 @@ async function carregarPremios() {
     }
 }
 
-// ==========================================
-// RESGATES
-// ==========================================
 async function carregarResgates() {
+    if (!supabaseClient || !usuarioAtual) return;
+    
     // Histórico do usuário
     const { data } = await supabaseClient
         .from('resgates')
@@ -231,8 +292,8 @@ async function carregarResgates() {
         usuarioAtual.historico = data.map(r => ({
             id: r.id,
             tipo: r.tipo_ovo,
-            nomeOvo: configOvos[r.tipo_ovo]?.nome,
-            emoji: configOvos[r.tipo_ovo]?.emoji,
+            nomeOvo: configOvos[r.tipo_ovo]?.nome || r.tipo_ovo,
+            emoji: configOvos[r.tipo_ovo]?.emoji || '🥚',
             codigo: r.codigo,
             pontos: r.pontos,
             premio: r.premio,
@@ -257,17 +318,417 @@ async function carregarResgates() {
                 forumName: r.forum_name,
                 usuario: r.forum_name || r.habbo_name,
                 tipo: r.tipo_ovo,
-                nomeOvo: configOvos[r.tipo_ovo]?.nome,
-                emoji: configOvos[r.tipo_ovo]?.emoji,
+                nomeOvo: configOvos[r.tipo_ovo]?.nome || r.tipo_ovo,
+                emoji: configOvos[r.tipo_ovo]?.emoji || '🥚',
                 codigo: r.codigo,
                 pontos: r.pontos,
                 premio: r.premio,
                 data: r.created_at,
                 status: r.status,
-                descricao: r.descricao
+                descricao: r.descricao,
+                comprovante_url: r.comprovante_url
             }));
         }
     }
+}
+
+async function carregarCodigosStats() {
+    if (!isAdmin() || !supabaseClient) return;
+    
+    const { data } = await supabaseClient
+        .from('codigos_ovos')
+        .select('tipo, usado');
+    
+    codigosStats = {};
+    if (data) {
+        data.forEach(c => {
+            if (!codigosStats[c.tipo]) {
+                codigosStats[c.tipo] = { total: 0, usados: 0 };
+            }
+            codigosStats[c.tipo].total++;
+            if (c.usado) codigosStats[c.tipo].usados++;
+        });
+    }
+}
+
+// ==========================================
+// CÓDIGOS - SUPABASE
+// ==========================================
+async function verificarCodigoNoSupabase(codigo) {
+    const { data, error } = await supabaseClient
+        .from('codigos_ovos')
+        .select('*')
+        .eq('codigo', codigo.toUpperCase())
+        .single();
+    
+    if (error || !data) return { valido: false, motivo: 'Código não encontrado' };
+    if (data.usado) return { valido: false, motivo: 'Código já foi usado' };
+    
+    return { 
+        valido: true, 
+        tipo: data.tipo,
+        codigoId: data.id 
+    };
+}
+
+// ==========================================
+// UTILITÁRIOS HABBO
+// ==========================================
+function getHabboHeadUrl(username, size = 's') {
+    return `https://www.habbo.com.br/habbo-imaging/avatarimage?user=${encodeURIComponent(username)}&headonly=1&size=${size}`;
+}
+
+function getHabboFullBodyUrl(username, size = 'l') {
+    return `https://www.habbo.com.br/habbo-imaging/avatarimage?user=${encodeURIComponent(username)}&size=${size}`;
+}
+
+function getAvatarHeadHtml(username, tamanho = '48px') {
+    if (!username) return '<div style="font-size: 24px;">🐰</div>';
+    return `<img src="${getHabboHeadUrl(username)}" 
+        style="width: ${tamanho}; height: ${tamanho}; border-radius: 50%; object-fit: cover;" 
+        onerror="this.onerror=null; this.parentElement.innerHTML='🐰';">`;
+}
+
+function getAvatarFullBodyHtml(username, tamanho = '120px') {
+    if (!username) return '<div style="font-size: 40px;">🐰</div>';
+    return `<img src="${getHabboFullBodyUrl(username)}" 
+        style="height: ${tamanho}; width: auto; object-fit: contain;" 
+        onerror="this.onerror=null; this.parentElement.innerHTML='🐰';">`;
+}
+
+// ==========================================
+// NAVEGAÇÃO
+// ==========================================
+function toggleMobileMenu() {
+    const sidebar = document.getElementById('sidebarNav');
+    const overlay = document.getElementById('sidebarOverlay');
+    const btn = document.getElementById('mobileMenuBtn');
+    const body = document.body;
+
+    sidebar.classList.toggle('active');
+    overlay.classList.toggle('active');
+    btn.classList.toggle('active');
+    body.style.overflow = sidebar.classList.contains('active') ? 'hidden' : '';
+}
+
+function closeMobileMenu() {
+    const sidebar = document.getElementById('sidebarNav');
+    const overlay = document.getElementById('sidebarOverlay');
+    const btn = document.getElementById('mobileMenuBtn');
+    const body = document.body;
+
+    sidebar.classList.remove('active');
+    overlay.classList.remove('active');
+    btn.classList.remove('active');
+    body.style.overflow = '';
+}
+
+function showSection(section) {
+    document.querySelectorAll('.section-content').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+
+    const targetSection = document.getElementById(`section-${section}`);
+    const targetNav = document.querySelector(`[data-section="${section}"]`);
+    
+    if (targetSection) targetSection.classList.remove('hidden');
+    if (targetNav) targetNav.classList.add('active');
+
+    if (section === 'meus') renderizarMeusResgates();
+    if (section === 'ranking') renderizarRanking();
+    if (section === 'admin') renderizarAdmin();
+    if (section === 'premios') renderizarPremios();
+}
+
+// ==========================================
+// RENDERIZAÇÃO - GUIA
+// ==========================================
+function renderizarGuiaOvos() {
+    const container = document.getElementById('guiaOvosLista');
+    if (!container) return;
+    
+    const ovos = Object.values(configOvos);
+
+    container.innerHTML = ovos.map(ovo => `
+        <div class="guia-item ${ovo.id}">
+            <div class="guia-header">
+                <div class="guia-emoji">${ovo.emoji}</div>
+                <div class="guia-titulo">
+                    <div class="guia-nome" style="color: ${ovo.cor === 'gradient' ? '#f59e0b' : ovo.cor};">${ovo.nome}</div>
+                    <div class="guia-quantidade">${ovo.quantidadeTotal} disponíveis</div>
+                </div>
+            </div>
+            
+            <div class="guia-recompensa">
+                <span class="guia-pontos"><i class="fa-solid fa-coins"></i> ${ovo.pontos} pontos</span>
+                ${ovo.chancePremio > 0 ? `<span class="guia-bonus"><i class="fa-solid fa-gift"></i> Chance de prêmio: ${Math.round(ovo.chancePremio * 100)}%</span>` : ''}
+                ${ovo.premioGarantido ? `<span class="guia-bonus"><i class="fa-solid fa-trophy"></i> Prêmio Lendário Garantido!</span>` : ''}
+            </div>
+            
+            <p class="guia-desc">${ovo.descricao}</p>
+            
+            <div class="guia-limites">
+                <i class="fa-solid fa-user-check"></i>
+                ${ovo.limitePorUsuario === Infinity
+                    ? 'Sem limite de resgates'
+                    : `Limite: ${ovo.limitePorUsuario} resgate${ovo.limitePorUsuario > 1 ? 's' : ''} por usuário`}
+            </div>
+        </div>
+    `).join('');
+}
+
+// ==========================================
+// RENDERIZAÇÃO - PRÊMIOS (PÚBLICO)
+// ==========================================
+function renderizarPremios() {
+    const categorias = [
+        { id: 'comum', nome: 'Comum', cor: 'comum', icone: 'star' },
+        { id: 'incomum', nome: 'Incomum', cor: 'incomum', icone: 'star-half' },
+        { id: 'raro', nome: 'Raro', cor: 'raro', icone: 'gem' },
+        { id: 'epico', nome: 'Épico', cor: 'epico', icone: 'crown' },
+        { id: 'lendario', nome: 'Lendário', cor: 'lendario', icone: 'trophy' }
+    ];
+
+    let totalPremios = 0;
+
+    categorias.forEach(cat => {
+        const container = document.getElementById(`premios${cat.nome}`);
+        if (!container) return;
+        
+        const premios = catalogoPremios[cat.id] || [];
+        totalPremios += premios.length;
+        
+        if (premios.length === 0) {
+            container.innerHTML = '<p style="color: var(--text-tertiary); text-align: center; padding: 20px;">Nenhum prêmio disponível.</p>';
+            return;
+        }
+        
+        container.innerHTML = premios.map(p => `
+            <div class="premio-card ${cat.cor}">
+                <span class="premio-raridade">${cat.nome}</span>
+                <div class="premio-icon">${p.icone}</div>
+                <h4 class="premio-nome">${p.nome}</h4>
+                <p class="premio-desc">${p.descricao || 'Sem descrição'}</p>
+                <span class="premio-origem ovo">Estoque: ${p.estoque}</span>
+            </div>
+        `).join('');
+    });
+
+    const totalBadge = document.getElementById('totalPremios');
+    if (totalBadge) totalBadge.textContent = `${totalPremios} prêmios`;
+}
+
+// ==========================================
+// RENDERIZAÇÃO - MEUS RESGATES
+// ==========================================
+function renderizarMeusResgates() {
+    if (!usuarioAtual) return;
+    
+    // Últimos resgates (máximo 5)
+    const ultimosContainer = document.getElementById('meusUltimosResgates');
+    const ultimos = usuarioAtual.historico?.slice(0, 5) || [];
+
+    if (ultimosContainer) {
+        if (ultimos.length === 0) {
+            ultimosContainer.innerHTML = `
+                <div class="empty-state">
+                    <div style="font-size: 64px; margin-bottom: 16px;">🧺</div>
+                    <h3>Sua cesta está vazia</h3>
+                    <p>Encontre e resgate ovos para preenchê-la!</p>
+                </div>
+            `;
+        } else {
+            ultimosContainer.innerHTML = ultimos.map(h => `
+                <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--bg-white); border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--border-light); border-left: 4px solid ${h.status === 'aprovado' ? 'var(--success)' : h.status === 'pendente' ? 'var(--warning)' : 'var(--danger)'};">
+                    <div style="font-size: 40px;">${h.emoji}</div>
+                    <div style="flex: 1;">
+                        <h4 style="margin-bottom: 4px;">${h.nomeOvo}</h4>
+                        <p style="font-size: 13px; color: var(--text-tertiary);">${new Date(h.data).toLocaleDateString('pt-BR')} • +${h.pontos} pts</p>
+                        <span class="status-badge status-${h.status}" style="margin-top: 4px; display: inline-flex;">
+                            <i class="fa-solid fa-${h.status === 'aprovado' ? 'check' : h.status === 'pendente' ? 'clock' : 'xmark'}"></i> 
+                            ${h.status === 'aprovado' ? 'Aprovado' : h.status === 'pendente' ? 'Pendente' : 'Rejeitado'}
+                        </span>
+                    </div>
+                    ${h.premio ? `<div style="font-size: 24px;" title="${h.premio.nome}">${h.premio.icone}</div>` : ''}
+                </div>
+            `).join('');
+        }
+    }
+
+    // Histórico completo
+    const historicoContainer = document.getElementById('meuHistoricoCompleto');
+    if (historicoContainer) {
+        historicoContainer.innerHTML = !usuarioAtual.historico || usuarioAtual.historico.length === 0 ?
+            `<div class="empty-state"><i class="fa-solid fa-basket-shopping" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></i><h3>Nenhum resgate ainda</h3><p>Comece a caçar ovos!</p></div>` :
+            usuarioAtual.historico.map(h => `
+                <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--bg-white); border-radius: 12px; margin-bottom: 12px; border-left: 4px solid ${h.status === 'aprovado' ? (configOvos[h.tipo]?.cor === 'gradient' ? '#f59e0b' : configOvos[h.tipo]?.cor || '#ccc') : h.status === 'pendente' ? 'var(--warning)' : 'var(--danger)'};">
+                    <div style="font-size: 40px;">${h.emoji}</div>
+                    <div style="flex: 1;">
+                        <h4 style="margin-bottom: 4px;">${h.nomeOvo}</h4>
+                        <p style="font-size: 13px; color: var(--text-tertiary); margin-bottom: 4px;">${new Date(h.data).toLocaleDateString('pt-BR')} às ${new Date(h.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+                        <p style="font-size: 12px; color: var(--text-tertiary);"><i class="fa-solid fa-hashtag"></i> ${h.codigo}</p>
+                        <span class="status-badge status-${h.status}" style="margin-top: 8px; display: inline-flex;">
+                            <i class="fa-solid fa-${h.status === 'aprovado' ? 'check' : h.status === 'pendente' ? 'clock' : 'xmark'}"></i> 
+                            ${h.status === 'aprovado' ? 'Aprovado' : h.status === 'pendente' ? 'Aguardando Aprovação' : 'Rejeitado'}
+                        </span>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 20px; font-weight: 800; color: ${h.status === 'aprovado' ? 'var(--gold-dark)' : 'var(--text-tertiary)'};">+${h.pontos}</div>
+                        ${h.premio ? `<div style="font-size: 24px; margin-top: 4px;" title="${h.premio.nome}">${h.premio.icone}</div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+    }
+
+    // Atualizar estatísticas
+    const ovosAprovados = usuarioAtual.historico?.filter(h => h.status === 'aprovado') || [];
+    const pontosAprovados = ovosAprovados.reduce((sum, h) => sum + h.pontos, 0);
+    const premiosAprovados = ovosAprovados.filter(h => h.premio).length;
+
+    const elPontos = document.getElementById('meusPontosTotal');
+    const elOvos = document.getElementById('meusOvosTotal');
+    const elPremios = document.getElementById('meusPremiosTotal');
+    
+    if (elPontos) elPontos.textContent = pontosAprovados;
+    if (elOvos) elOvos.textContent = ovosAprovados.length;
+    if (elPremios) elPremios.textContent = premiosAprovados;
+}
+
+function atualizarStats() {
+    if (!usuarioAtual) return;
+    
+    const ovosAprovados = usuarioAtual.historico?.filter(h => h.status === 'aprovado') || [];
+    const pontosAprovados = ovosAprovados.reduce((sum, h) => sum + h.pontos, 0);
+    const premiosAprovados = ovosAprovados.filter(h => h.premio).length;
+
+    const elPoints = document.getElementById('userPoints');
+    const elOvos = document.getElementById('userTotalOvos');
+    const elPremios = document.getElementById('userTotalPremios');
+    
+    if (elPoints) elPoints.textContent = pontosAprovados;
+    if (elOvos) elOvos.textContent = ovosAprovados.length;
+    if (elPremios) elPremios.textContent = premiosAprovados;
+}
+
+// ==========================================
+// RENDERIZAÇÃO - RANKING
+// ==========================================
+function renderizarRanking() {
+    if (!membros.length) return;
+    
+    // Preparar dados
+    const jogadores = membros.map(m => {
+        const souEu = usuarioAtual && (m.nick === usuarioAtual.habboName || m.nick === usuarioAtual.forumName);
+        const meusDados = souEu ? usuarioAtual : null;
+        
+        return {
+            nome: m.nick,
+            habboName: m.nick,
+            pontos: meusDados?.pontos || Math.floor(Math.random() * 500),
+            ovos: meusDados ? Object.values(meusDados.ovosResgatados || {}).reduce((a, b) => a + b, 0) : Math.floor(Math.random() * 15),
+            souEu: souEu
+        };
+    });
+
+    const ordenarPor = tipoRankingAtual === 'pontos' ? 'pontos' : 'ovos';
+    jogadores.sort((a, b) => b[ordenarPor] - a[ordenarPor]);
+
+    // Pódium
+    const podium = jogadores.slice(0, 3);
+    const podiumContainer = document.getElementById('podiumTop3');
+    
+    if (podiumContainer && podium.length >= 3) {
+        const iconesPodium = { 1: 'fa-crown', 2: 'fa-medal', 3: 'fa-award' };
+        
+        podiumContainer.innerHTML = `
+            <div class="podium-item pos-2">
+                <div class="podium-avatar-wrapper">
+                    <div class="podium-badge"><i class="fa-solid ${iconesPodium[2]}"></i></div>
+                    <div class="podium-avatar-container">${getAvatarFullBodyHtml(podium[1]?.habboName, '140px')}</div>
+                </div>
+                <div class="podium-base">
+                    <div class="podium-info">
+                        <div class="podium-nome">${podium[1]?.nome || '-'}</div>
+                        <div class="podium-stats">
+                            <div class="podium-pontos"><i class="fa-solid fa-coins"></i> ${podium[1]?.[ordenarPor] || 0}</div>
+                            <div class="podium-label">${ordenarPor === 'pontos' ? 'pontos' : 'ovos'}</div>
+                        </div>
+                    </div>
+                    <div class="podium-rank-number">2</div>
+                </div>
+            </div>
+            <div class="podium-item pos-1">
+                <div class="podium-avatar-wrapper">
+                    <div class="podium-badge"><i class="fa-solid ${iconesPodium[1]}"></i></div>
+                    <div class="podium-avatar-container">${getAvatarFullBodyHtml(podium[0]?.habboName, '170px')}</div>
+                </div>
+                <div class="podium-base">
+                    <div class="podium-info">
+                        <div class="podium-nome">${podium[0]?.nome || '-'}</div>
+                        <div class="podium-stats">
+                            <div class="podium-pontos"><i class="fa-solid fa-coins"></i> ${podium[0]?.[ordenarPor] || 0}</div>
+                            <div class="podium-label">${ordenarPor === 'pontos' ? 'pontos' : 'ovos'}</div>
+                        </div>
+                    </div>
+                    <div class="podium-rank-number">1</div>
+                </div>
+            </div>
+            <div class="podium-item pos-3">
+                <div class="podium-avatar-wrapper">
+                    <div class="podium-badge"><i class="fa-solid ${iconesPodium[3]}"></i></div>
+                    <div class="podium-avatar-container">${getAvatarFullBodyHtml(podium[2]?.habboName, '140px')}</div>
+                </div>
+                <div class="podium-base">
+                    <div class="podium-info">
+                        <div class="podium-nome">${podium[2]?.nome || '-'}</div>
+                        <div class="podium-stats">
+                            <div class="podium-pontos"><i class="fa-solid fa-coins"></i> ${podium[2]?.[ordenarPor] || 0}</div>
+                            <div class="podium-label">${ordenarPor === 'pontos' ? 'pontos' : 'ovos'}</div>
+                        </div>
+                    </div>
+                    <div class="podium-rank-number">3</div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Lista completa
+    const rankingContainer = document.getElementById('rankingCompleto');
+    if (rankingContainer) {
+        rankingContainer.innerHTML = jogadores.map((j, index) => `
+            <div class="ranking-item-novo ${j.souEu ? 'destaque' : ''}" data-pos="${index + 1}">
+                <div class="ranking-pos ${index < 3 ? 'top' : 'normal'}">${index + 1}</div>
+                <div class="ranking-avatar-novo" style="overflow: hidden; padding: 0; border-radius: 50%;">
+                    ${getAvatarHeadHtml(j.habboName, '48px')}
+                </div>
+                <div class="ranking-info-novo">
+                    <div class="ranking-nome-novo">
+                        ${j.nome}
+                        ${j.souEu ? '<span class="ranking-badge">VOCÊ</span>' : ''}
+                    </div>
+                    <div class="ranking-stats">
+                        <span class="ranking-stat pontos"><i class="fa-solid fa-coins"></i> ${j.pontos} pts</span>
+                        <span class="ranking-stat ovos"><i class="fa-solid fa-egg"></i> ${j.ovos} ovos</span>
+                    </div>
+                </div>
+                <div class="ranking-valor">
+                    <div class="ranking-numero">${j[ordenarPor]}</div>
+                    <div class="ranking-label">${ordenarPor === 'pontos' ? 'pontos' : 'ovos'}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
+function alternarRanking(tipo) {
+    tipoRankingAtual = tipo;
+    
+    const btnPontos = document.getElementById('btnRankPontos');
+    const btnOvos = document.getElementById('btnRankOvos');
+    
+    if (btnPontos) btnPontos.classList.toggle('btn-rank-ativo', tipo === 'pontos');
+    if (btnOvos) btnOvos.classList.toggle('btn-rank-ativo', tipo === 'ovos');
+    
+    renderizarRanking();
 }
 
 // ==========================================
@@ -275,10 +736,10 @@ async function carregarResgates() {
 // ==========================================
 async function iniciarResgateCodigo() {
     const input = document.getElementById('codigoInput');
-    const codigo = input.value.trim();
+    const codigo = input?.value?.trim();
 
     if (!codigo) {
-        showToast('Erro', 'Digite um código!', 'error');
+        showToast('Erro', 'Digite um código válido!', 'error');
         return;
     }
 
@@ -294,8 +755,8 @@ async function iniciarResgateCodigo() {
     const config = configOvos[verificacao.tipo];
     
     // Verificar limite do usuário
-    const jaResgatados = usuarioAtual.ovosResgatados[verificacao.tipo] || 0;
-    if (jaResgatados >= config.limite) {
+    const jaResgatados = usuarioAtual.ovosResgatados?.[verificacao.tipo] || 0;
+    if (jaResgatados >= config.limitePorUsuario) {
         showToast('Limite Atingido', `Você já resgatou o máximo de ${config.nome}(s)!`, 'error');
         return;
     }
@@ -310,9 +771,72 @@ async function iniciarResgateCodigo() {
     abrirComprovacaoModal();
 }
 
+function abrirComprovacaoModal() {
+    if (!resgatePendente) return;
+    
+    const config = resgatePendente.config;
+
+    const infoDiv = document.getElementById('comprovacaoInfo');
+    if (infoDiv) {
+        infoDiv.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
+                <div style="font-size: 48px;">${config.emoji}</div>
+                <div>
+                    <h4 style="color: ${config.cor === 'gradient' ? '#f59e0b' : config.cor}; margin-bottom: 4px;">${config.nome}</h4>
+                    <p style="font-size: 14px; color: var(--text-tertiary);">Código: <code>${resgatePendente.codigo}</code></p>
+                </div>
+            </div>
+            <div style="background: var(--bg-white); padding: 12px; border-radius: 8px; text-align: center;">
+                <p style="font-size: 18px; font-weight: 700; color: var(--gold-dark);">
+                    <i class="fa-solid fa-coins"></i> ${config.pontos} pontos
+                </p>
+                ${config.chancePremio > 0 ? `
+                    <p style="color: var(--warning); font-size: 14px; margin-top: 4px;">
+                        <i class="fa-solid fa-dice"></i> Chance de prêmio: ${Math.round(config.chancePremio * 100)}%
+                    </p>
+                ` : ''}
+                ${config.premioGarantido ? `
+                    <p style="color: var(--success); font-size: 14px; margin-top: 4px;">
+                        <i class="fa-solid fa-trophy"></i> Prêmio Lendário Garantido!
+                    </p>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    const modal = document.getElementById('comprovacaoModal');
+    if (modal) modal.classList.add('active');
+}
+
+function fecharComprovacaoModal() {
+    const modal = document.getElementById('comprovacaoModal');
+    if (modal) modal.classList.remove('active');
+    
+    const form = document.getElementById('formComprovacao');
+    if (form) form.reset();
+    
+    const preview = document.getElementById('filePreview');
+    if (preview) preview.style.display = 'none';
+    
+    resgatePendente = null;
+}
+
+function previewComprovacao(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const previewImg = document.getElementById('previewImage');
+            const previewDiv = document.getElementById('filePreview');
+            if (previewImg) previewImg.src = e.target.result;
+            if (previewDiv) previewDiv.style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
 async function confirmarComprovacao(e) {
     e.preventDefault();
-    if (!resgatePendente) return;
+    if (!resgatePendente || !usuarioAtual) return;
 
     const descricao = document.getElementById('comprovacaoDesc')?.value || '';
     const fileInput = document.getElementById('comprovacaoFile');
@@ -329,7 +853,7 @@ async function confirmarComprovacao(e) {
             premioGanho = disponiveis[0];
             premioId = premioGanho.id;
         }
-    } else if (config.chancePremio && Math.random() < config.chancePremio) {
+    } else if (config.chancePremio > 0 && Math.random() < config.chancePremio) {
         const cat = config.id === 'lendario' ? 'lendario' : config.id === 'epico' ? 'epico' : 'raro';
         const disponiveis = catalogoPremios[cat].filter(p => p.estoque > 0);
         if (disponiveis.length > 0) {
@@ -340,7 +864,7 @@ async function confirmarComprovacao(e) {
 
     // Upload imagem
     let comprovanteUrl = null;
-    if (file) {
+    if (file && supabaseClient) {
         const fileName = `${usuarioAtual.id}/${Date.now()}.${file.name.split('.').pop()}`;
         const { data: upload } = await supabaseClient.storage.from('comprovantes').upload(fileName, file);
         if (upload) {
@@ -392,25 +916,48 @@ async function confirmarComprovacao(e) {
     });
 
     fecharComprovacaoModal();
-    document.getElementById('codigoInput').value = '';
+    const input = document.getElementById('codigoInput');
+    if (input) input.value = '';
+    
     showToast('Sucesso!', 'Resgate enviado para aprovação.', 'success');
     renderizarMeusResgates();
-    if (isAdmin()) renderizarAdmin();
+    if (isAdmin()) {
+        await carregarResgates();
+        renderizarAdmin();
+    }
+}
+
+function fecharResultadoModal() {
+    const modal = document.getElementById('resultadoModal');
+    if (modal) modal.classList.remove('active');
 }
 
 // ==========================================
-// ADMIN - GERENCIAMENTO DE PRÊMIOS (INTERFACE)
+// ADMIN - RENDERIZAÇÃO
 // ==========================================
+function isAdmin() {
+    return usuarioAtual?.grupoPermissao === 'admin';
+}
+
 function renderizarAdmin() {
     if (!isAdmin()) {
-        document.getElementById('adminContent').innerHTML = '<div class="empty-state"><i class="fa-solid fa-lock"></i><h3>Acesso Restrito</h3></div>';
+        const content = document.getElementById('adminContent');
+        if (content) {
+            content.innerHTML = `
+                <div class="empty-state">
+                    <i class="fa-solid fa-lock" style="font-size: 48px; margin-bottom: 16px;"></i>
+                    <h3>Acesso Restrito</h3>
+                    <p>Apenas administradores podem acessar esta área.</p>
+                </div>
+            `;
+        }
         return;
     }
 
     const container = document.getElementById('adminContent');
+    if (!container) return;
     
     container.innerHTML = `
-        <!-- ABAS DO ADMIN -->
         <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
             <button class="btn btn-sm ${abaAdminAtiva === 'resgates' ? 'btn-primary' : 'btn-secondary'}" onclick="mudarAbaAdmin('resgates')">
                 <i class="fa-solid fa-clipboard-check"></i> Aprovar Resgates
@@ -421,19 +968,12 @@ function renderizarAdmin() {
             <button class="btn btn-sm ${abaAdminAtiva === 'codigos' ? 'btn-primary' : 'btn-secondary'}" onclick="mudarAbaAdmin('codigos')">
                 <i class="fa-solid fa-key"></i> Gerenciar Códigos
             </button>
-            <button class="btn btn-sm ${abaAdminAtiva === 'usuarios' ? 'btn-primary' : 'btn-secondary'}" onclick="mudarAbaAdmin('usuarios')">
-                <i class="fa-solid fa-users"></i> Usuários
-            </button>
         </div>
-
-        <!-- CONTEÚDO DAS ABAS -->
         <div id="adminAbaContent"></div>
     `;
 
     renderizarAbaAdmin();
 }
-
-let abaAdminAtiva = 'resgates';
 
 function mudarAbaAdmin(aba) {
     abaAdminAtiva = aba;
@@ -442,6 +982,7 @@ function mudarAbaAdmin(aba) {
 
 function renderizarAbaAdmin() {
     const content = document.getElementById('adminAbaContent');
+    if (!content) return;
     
     switch(abaAdminAtiva) {
         case 'resgates':
@@ -453,13 +994,9 @@ function renderizarAbaAdmin() {
         case 'codigos':
             content.innerHTML = renderizarAbaCodigos();
             break;
-        case 'usuarios':
-            content.innerHTML = renderizarAbaUsuarios();
-            break;
     }
 }
 
-// ---------- ABA: RESGATES ----------
 function renderizarAbaResgates() {
     const pendentes = todosResgates.filter(r => r.status === 'pendente');
     
@@ -469,12 +1006,6 @@ function renderizarAbaResgates() {
                 <div class="panel-title">
                     <i class="fa-solid fa-clock"></i> Resgates Pendentes (${pendentes.length})
                 </div>
-                <select class="filter-select" onchange="filtrarResgates(this.value)" style="width: auto;">
-                    <option value="pendente">Pendentes</option>
-                    <option value="todos">Todos</option>
-                    <option value="aprovado">Aprovados</option>
-                    <option value="rejeitado">Rejeitados</option>
-                </select>
             </div>
             <div class="panel-content">
                 <div style="overflow-x: auto;">
@@ -485,16 +1016,17 @@ function renderizarAbaResgates() {
                                 <th>Ovo</th>
                                 <th>Código</th>
                                 <th>Recompensa</th>
-                                <th>Data</th>
                                 <th>Ações</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${pendentes.length === 0 ? `
-                                <tr><td colspan="6" class="empty-state" style="padding: 40px;">
-                                    <i class="fa-solid fa-check-circle" style="font-size: 48px; color: var(--success);"></i>
-                                    <h3>Tudo em ordem!</h3>
-                                    <p>Nenhum resgate pendente.</p>
+                                <tr><td colspan="5" style="text-align: center; padding: 40px;">
+                                    <div class="empty-state">
+                                        <i class="fa-solid fa-check-circle" style="font-size: 48px; color: var(--success);"></i>
+                                        <h3>Tudo em ordem!</h3>
+                                        <p>Nenhum resgate pendente.</p>
+                                    </div>
                                 </td></tr>
                             ` : pendentes.map(r => `
                                 <tr>
@@ -504,7 +1036,7 @@ function renderizarAbaResgates() {
                                                 ${getAvatarHeadHtml(r.habboName, '32px')}
                                             </div>
                                             <div>
-                                                <div style="font-weight: 600;">${r.forumName}</div>
+                                                <div style="font-weight: 600; font-size: 13px;">${r.forumName}</div>
                                                 <div style="font-size: 11px; color: var(--text-tertiary);">${r.habboName}</div>
                                             </div>
                                         </div>
@@ -515,7 +1047,6 @@ function renderizarAbaResgates() {
                                         <span style="color: var(--gold-dark); font-weight: 700;"><i class="fa-solid fa-coins"></i> ${r.pontos}</span>
                                         ${r.premio ? `<br><span style="font-size: 16px;">${r.premio.icone} ${r.premio.nome}</span>` : ''}
                                     </td>
-                                    <td style="font-size: 13px;">${new Date(r.data).toLocaleDateString('pt-BR')}</td>
                                     <td>
                                         <div class="action-btns">
                                             <button class="btn-icon btn-view" onclick="verDetalhesResgate('${r.id}')" title="Ver detalhes"><i class="fa-solid fa-eye"></i></button>
@@ -533,13 +1064,11 @@ function renderizarAbaResgates() {
     `;
 }
 
-// ---------- ABA: PRÊMIOS (GERENCIAMENTO COMPLETO) ----------
 function renderizarAbaPremios() {
-    const todasCategorias = ['comum', 'incomum', 'raro', 'epico', 'lendario'];
+    const categorias = ['comum', 'incomum', 'raro', 'epico', 'lendario'];
     
     return `
         <div style="display: grid; gap: 20px;">
-            <!-- FORMULÁRIO PARA ADICIONAR PRÊMIO -->
             <div class="panel" style="border: 2px solid var(--primary);">
                 <div class="panel-header" style="background: var(--gradient-primary); color: white;">
                     <div class="panel-title" style="color: white;">
@@ -556,12 +1085,12 @@ function renderizarAbaPremios() {
                             <div class="form-group">
                                 <label class="form-label">Categoria *</label>
                                 <select class="form-select" id="novoPremioCategoria" required>
-                                    ${todasCategorias.map(c => `<option value="${c}">${c.charAt(0).toUpperCase() + c.slice(1)}</option>`).join('')}
+                                    ${categorias.map(c => `<option value="${c}">${c.charAt(0).toUpperCase() + c.slice(1)}</option>`).join('')}
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Ícone (Emoji) *</label>
-                                <input type="text" class="form-input" id="novoPremioIcone" required placeholder="🏆" maxlength="2">
+                                <input type="text" class="form-input" id="novoPremioIcone" required placeholder="🏆" maxlength="2" style="font-size: 20px; text-align: center;">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Estoque Inicial *</label>
@@ -579,19 +1108,19 @@ function renderizarAbaPremios() {
                 </div>
             </div>
 
-            <!-- LISTA DE PRÊMIOS POR CATEGORIA -->
-            ${todasCategorias.map(cat => `
+            ${categorias.map(cat => `
                 <div class="panel">
                     <div class="panel-header">
                         <div class="panel-title">
                             <i class="fa-solid fa-${cat === 'comum' ? 'star' : cat === 'incomum' ? 'star-half' : cat === 'raro' ? 'gem' : cat === 'epico' ? 'crown' : 'trophy'}"></i>
                             Prêmios ${cat.charAt(0).toUpperCase() + cat.slice(1)}
-                            <span class="panel-badge">${catalogoPremios[cat].length}</span>
+                            <span class="panel-badge">${catalogoPremios[cat]?.length || 0}</span>
                         </div>
                     </div>
                     <div class="panel-content">
-                        ${catalogoPremios[cat].length === 0 ? '<p style="color: var(--text-tertiary);">Nenhum prêmio nesta categoria.</p>' : `
-                            <div style="display: grid; gap: 12px;">
+                        ${!catalogoPremios[cat] || catalogoPremios[cat].length === 0 ? 
+                            '<p style="color: var(--text-tertiary);">Nenhum prêmio nesta categoria.</p>' : 
+                            `<div style="display: grid; gap: 12px;">
                                 ${catalogoPremios[cat].map(p => `
                                     <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--bg-white); border-radius: 12px; border: 1px solid var(--border-light);">
                                         <div style="font-size: 40px; width: 60px; text-align: center;">${p.icone}</div>
@@ -605,10 +1134,10 @@ function renderizarAbaPremios() {
                                         </div>
                                         <div style="display: flex; flex-direction: column; gap: 8px;">
                                             <div style="display: flex; gap: 4px; justify-content: center;">
-                                                <button class="btn-icon" onclick="ajustarEstoque('${p.id}', 1)" title="Aumentar estoque" style="background: var(--success); color: white;">
+                                                <button class="btn-icon" onclick="ajustarEstoque('${p.id}', 1)" title="Aumentar" style="background: var(--success); color: white; width: 32px; height: 32px;">
                                                     <i class="fa-solid fa-plus"></i>
                                                 </button>
-                                                <button class="btn-icon" onclick="ajustarEstoque('${p.id}', -1)" title="Diminuir estoque" style="background: var(--warning); color: white;">
+                                                <button class="btn-icon" onclick="ajustarEstoque('${p.id}', -1)" title="Diminuir" style="background: var(--warning); color: white; width: 32px; height: 32px;">
                                                     <i class="fa-solid fa-minus"></i>
                                                 </button>
                                             </div>
@@ -618,8 +1147,8 @@ function renderizarAbaPremios() {
                                         </div>
                                     </div>
                                 `).join('')}
-                            </div>
-                        `}
+                            </div>`
+                        }
                     </div>
                 </div>
             `).join('')}
@@ -627,20 +1156,19 @@ function renderizarAbaPremios() {
     `;
 }
 
-// ---------- ABA: CÓDIGOS ----------
 function renderizarAbaCodigos() {
     return `
         <div class="panel">
             <div class="panel-header">
                 <div class="panel-title">
-                    <i class="fa-solid fa-key"></i> Gerenciar Códigos de Ovos
+                    <i class="fa-solid fa-key"></i> Estatísticas dos Códigos
                 </div>
                 <button class="btn btn-primary btn-sm" onclick="abrirModalNovoCodigo()">
-                    <i class="fa-solid fa-plus"></i> Novo Código
+                    <i class="fa-solid fa-plus"></i> Gerar Códigos
                 </button>
             </div>
             <div class="panel-content">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px;">
                     ${Object.entries(configOvos).map(([key, ovo]) => `
                         <div style="background: var(--bg-white); padding: 20px; border-radius: 12px; border-left: 4px solid ${ovo.cor === 'gradient' ? '#f59e0b' : ovo.cor};">
                             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
@@ -651,51 +1179,29 @@ function renderizarAbaCodigos() {
                                 </div>
                             </div>
                             <div style="display: flex; justify-content: space-between; font-size: 14px;">
-                                <span>Total: <strong>${codigosCache[key]?.total || 0}</strong></span>
-                                <span>Disponíveis: <strong style="color: var(--success);">${(codigosCache[key]?.total || 0) - (codigosCache[key]?.usados || 0)}</strong></span>
-                                <span>Usados: <strong style="color: var(--danger);">${codigosCache[key]?.usados || 0}</strong></span>
+                                <span>Total: <strong>${codigosStats[key]?.total || 0}</strong></span>
+                                <span style="color: var(--success);">Disp.: <strong>${(codigosStats[key]?.total || 0) - (codigosStats[key]?.usados || 0)}</strong></span>
+                                <span style="color: var(--danger);">Usados: <strong>${codigosStats[key]?.usados || 0}</strong></span>
                             </div>
                         </div>
                     `).join('')}
                 </div>
-                
-                <button class="btn btn-secondary" onclick="carregarCodigosStats(); renderizarAbaAdmin();">
-                    <i class="fa-solid fa-rotate"></i> Atualizar Estatísticas
-                </button>
-            </div>
-        </div>
-    `;
-}
-
-// ---------- ABA: USUÁRIOS ----------
-function renderizarAbaUsuarios() {
-    return `
-        <div class="panel">
-            <div class="panel-header">
-                <div class="panel-title">
-                    <i class="fa-solid fa-users"></i> Gerenciar Usuários
-                </div>
-            </div>
-            <div class="panel-content">
-                <p style="color: var(--text-tertiary);">Funcionalidade em desenvolvimento...</p>
             </div>
         </div>
     `;
 }
 
 // ==========================================
-// FUNÇÕES ADMIN - AÇÕES
+// ADMIN - AÇÕES
 // ==========================================
-
-// Adicionar novo prêmio
 async function adicionarNovoPremio(e) {
     e.preventDefault();
     
-    const nome = document.getElementById('novoPremioNome').value;
-    const categoria = document.getElementById('novoPremioCategoria').value;
-    const icone = document.getElementById('novoPremioIcone').value;
-    const estoque = parseInt(document.getElementById('novoPremioEstoque').value);
-    const descricao = document.getElementById('novoPremioDescricao').value;
+    const nome = document.getElementById('novoPremioNome')?.value;
+    const categoria = document.getElementById('novoPremioCategoria')?.value;
+    const icone = document.getElementById('novoPremioIcone')?.value;
+    const estoque = parseInt(document.getElementById('novoPremioEstoque')?.value);
+    const descricao = document.getElementById('novoPremioDescricao')?.value;
 
     const { data, error } = await supabaseClient
         .from('premios')
@@ -708,20 +1214,16 @@ async function adicionarNovoPremio(e) {
         return;
     }
 
-    // Atualizar local
     catalogoPremios[categoria].push({
-        id: data.id,
-        nome, descricao, icone, estoque, categoria
+        id: data.id, nome, descricao, icone, estoque, categoria
     });
 
-    showToast('Sucesso!', 'Prêmio adicionado com sucesso!', 'success');
-    
-    // Limpar formulário e recarregar
+    showToast('Sucesso!', 'Prêmio adicionado!', 'success');
     e.target.reset();
     renderizarAbaAdmin();
+    renderizarPremios();
 }
 
-// Ajustar estoque
 async function ajustarEstoque(premioId, quantidade) {
     const premio = findPremioById(premioId);
     if (!premio) return;
@@ -740,10 +1242,10 @@ async function ajustarEstoque(premioId, quantidade) {
 
     premio.estoque = novoEstoque;
     renderizarAbaAdmin();
+    renderizarPremios();
     showToast('Estoque Atualizado', `Novo estoque: ${novoEstoque}`, 'success');
 }
 
-// Remover prêmio
 async function removerPremio(premioId) {
     if (!confirm('Tem certeza que deseja remover este prêmio?')) return;
     
@@ -752,7 +1254,6 @@ async function removerPremio(premioId) {
         .update({ ativo: false })
         .eq('id', premioId);
 
-    // Remover do cache local
     for (const cat in catalogoPremios) {
         const idx = catalogoPremios[cat].findIndex(p => p.id === premioId);
         if (idx !== -1) {
@@ -762,10 +1263,10 @@ async function removerPremio(premioId) {
     }
 
     renderizarAbaAdmin();
+    renderizarPremios();
     showToast('Prêmio Removido', 'O prêmio foi desativado.', 'success');
 }
 
-// Aprovar resgate
 async function aprovarResgate(id) {
     const resgate = todosResgates.find(r => r.id === id);
     if (!resgate) return;
@@ -775,13 +1276,13 @@ async function aprovarResgate(id) {
         .update({ status: 'aprovado', aprovado_em: new Date().toISOString() })
         .eq('id', id);
 
-    // Atualizar pontos do usuário
+    // Atualizar pontos
     await supabaseClient.rpc('adicionar_pontos_usuario', {
         p_habbo_name: resgate.habboName,
         p_pontos: resgate.pontos
     });
 
-    // Decrementar estoque se houver prêmio
+    // Decrementar estoque
     if (resgate.premio) {
         await supabaseClient.rpc('decrementar_estoque', { premio_id: resgate.premio.id });
         const p = findPremioById(resgate.premio.id);
@@ -790,11 +1291,16 @@ async function aprovarResgate(id) {
 
     resgate.status = 'aprovado';
     renderizarAbaAdmin();
+    atualizarStats();
+    renderizarMeusResgates();
+    renderizarPremios();
     showToast('Aprovado!', 'Resgate aprovado com sucesso.', 'success');
 }
 
-// Rejeitar resgate
 async function rejeitarResgate(id) {
+    const resgate = todosResgates.find(r => r.id === id);
+    if (!resgate) return;
+    
     const motivo = prompt('Motivo da rejeição (opcional):');
     if (motivo === null) return;
 
@@ -807,17 +1313,107 @@ async function rejeitarResgate(id) {
         })
         .eq('id', id);
 
-    // Liberar o código para uso novamente
+    // Liberar código
     await supabaseClient
         .from('codigos_ovos')
         .update({ usado: false, usado_por: null, usado_em: null })
-        .eq('codigo', todosResgates.find(r => r.id === id)?.codigo);
+        .eq('codigo', resgate.codigo);
 
-    const r = todosResgates.find(r => r.id === id);
-    if (r) r.status = 'rejeitado';
-    
+    resgate.status = 'rejeitado';
     renderizarAbaAdmin();
     showToast('Rejeitado', 'Resgate rejeitado e código liberado.', 'error');
+}
+
+function verDetalhesResgate(id) {
+    const resgate = todosResgates.find(r => r.id === id);
+    if (!resgate) return;
+
+    const content = document.getElementById('viewModalContent');
+    if (!content) return;
+    
+    content.innerHTML = `
+        <div style="text-align: center; margin-bottom: 24px;">
+            <div style="font-size: 64px; margin-bottom: 12px;">${resgate.emoji}</div>
+            <div style="height: 150px; display: flex; align-items: flex-end; justify-content: center; margin-bottom: 12px;">
+                ${getAvatarFullBodyHtml(resgate.habboName, '150px')}
+            </div>
+            <h3 style="color: var(--primary);">${resgate.nomeOvo}</h3>
+            <p style="color: var(--text-tertiary); font-size: 14px;">Código: ${resgate.codigo}</p>
+        </div>
+        
+        <div style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+            <h4 style="margin-bottom: 12px; font-size: 14px; text-transform: uppercase; color: var(--text-tertiary);">Informações</h4>
+            <div style="display: grid; gap: 8px; font-size: 14px;">
+                <div style="display: flex; justify-content: space-between;"><span>Habbo:</span> <strong>${resgate.habboName}</strong></div>
+                <div style="display: flex; justify-content: space-between;"><span>Fórum:</span> <strong>${resgate.forumName}</strong></div>
+                <div style="display: flex; justify-content: space-between;"><span>Data:</span> <strong>${new Date(resgate.data).toLocaleString('pt-BR')}</strong></div>
+                <div style="display: flex; justify-content: space-between;"><span>Status:</span> <span class="status-badge status-${resgate.status}">${resgate.status}</span></div>
+                <div style="display: flex; justify-content: space-between;"><span>Pontos:</span> <strong style="color: var(--gold-dark);">+${resgate.pontos}</strong></div>
+                ${resgate.premio ? `<div style="display: flex; justify-content: space-between;"><span>Prêmio:</span> <span>${resgate.premio.icone} ${resgate.premio.nome}</span></div>` : ''}
+            </div>
+        </div>
+
+        ${resgate.descricao ? `
+            <div style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                <h4 style="margin-bottom: 8px; font-size: 14px; text-transform: uppercase; color: var(--text-tertiary);">Descrição</h4>
+                <p style="font-size: 14px; color: var(--text-secondary);">${resgate.descricao}</p>
+            </div>
+        ` : ''}
+
+        <div style="display: flex; gap: 12px;">
+            <button class="btn btn-secondary" style="flex: 1;" onclick="fecharViewModal()">Fechar</button>
+            ${resgate.status === 'pendente' ? `
+                <button class="btn btn-success" style="flex: 1;" onclick="aprovarResgate('${resgate.id}'); fecharViewModal();"><i class="fa-solid fa-check"></i> Aprovar</button>
+                <button class="btn btn-danger" style="flex: 1;" onclick="rejeitarResgate('${resgate.id}'); fecharViewModal();"><i class="fa-solid fa-xmark"></i> Rejeitar</button>
+            ` : ''}
+        </div>
+    `;
+    
+    document.getElementById('viewModal')?.classList.add('active');
+}
+
+function fecharViewModal() {
+    document.getElementById('viewModal')?.classList.remove('active');
+}
+
+function abrirModalNovoCodigo() {
+    document.getElementById('codigoModal')?.classList.add('active');
+}
+
+function fecharCodigoModal() {
+    document.getElementById('codigoModal')?.classList.remove('active');
+    document.getElementById('formCodigo')?.reset();
+}
+
+async function gerarCodigos(e) {
+    e.preventDefault();
+    
+    const tipo = document.getElementById('codigoTipo')?.value;
+    const quantidade = parseInt(document.getElementById('codigoQuantidade')?.value);
+    
+    // Gerar códigos únicos
+    const novosCodigos = [];
+    for (let i = 0; i < quantidade; i++) {
+        const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+        novosCodigos.push({
+            codigo: `SRC-${tipo.toUpperCase()}-${random}`,
+            tipo: tipo
+        });
+    }
+    
+    const { error } = await supabaseClient
+        .from('codigos_ovos')
+        .insert(novosCodigos);
+    
+    if (error) {
+        showToast('Erro', error.message, 'error');
+        return;
+    }
+    
+    showToast('Sucesso!', `${quantidade} códigos gerados!`, 'success');
+    fecharCodigoModal();
+    await carregarCodigosStats();
+    renderizarAbaAdmin();
 }
 
 // ==========================================
@@ -831,78 +1427,20 @@ function findPremioById(id) {
     return null;
 }
 
-function isAdmin() {
-    return usuarioAtual?.grupoPermissao === 'admin';
-}
-
-function getAvatarHeadHtml(username, size = '48px') {
-    if (!username) return '<div>🐰</div>';
-    return `<img src="https://www.habbo.com.br/habbo-imaging/avatarimage?user=${encodeURIComponent(username)}&headonly=1&size=s" 
-        style="width: ${size}; height: ${size}; border-radius: 50%; object-fit: cover;" 
-        onerror="this.style.display='none'; this.parentElement.innerHTML='🐰';">`;
-}
-
-function showToast(title, msg, type = 'success') {
+function showToast(title, message, type = 'success') {
     const toast = document.getElementById('toast');
-    document.getElementById('toastTitle').textContent = title;
-    document.getElementById('toastMessage').textContent = msg;
-    toast.className = `toast ${type} show`;
+    if (!toast) return;
+    
+    toast.className = `toast ${type}`;
+    
+    const titleEl = document.getElementById('toastTitle');
+    const msgEl = document.getElementById('toastMessage');
+    
+    if (titleEl) titleEl.textContent = title;
+    if (msgEl) msgEl.textContent = message;
+    
+    toast.classList.add('show');
     setTimeout(() => toast.classList.remove('show'), 3000);
-}
-
-// ==========================================
-// UI BÁSICA
-// ==========================================
-function showSection(section) {
-    document.querySelectorAll('.section-content').forEach(el => el.classList.add('hidden'));
-    document.getElementById(`section-${section}`)?.classList.remove('hidden');
-    
-    if (section === 'admin') renderizarAdmin();
-    if (section === 'meus') renderizarMeusResgates();
-    if (section === 'premios') renderizarPremiosPublico();
-    if (section === 'ranking') renderizarRanking();
-}
-
-function renderizarMeusResgates() {
-    // Implementação básica
-    const container = document.getElementById('meuHistoricoCompleto');
-    if (!container) return;
-    
-    container.innerHTML = usuarioAtual?.historico?.length ? 
-        usuarioAtual.historico.map(h => `
-            <div style="padding: 16px; background: var(--bg-white); border-radius: 12px; margin-bottom: 12px; border-left: 4px solid ${h.status === 'aprovado' ? 'var(--success)' : h.status === 'pendente' ? 'var(--warning)' : 'var(--danger)'};">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <span style="font-size: 24px;">${h.emoji}</span>
-                        <strong>${h.nomeOvo}</strong>
-                        <span class="status-badge status-${h.status}" style="margin-left: 8px;">${h.status}</span>
-                    </div>
-                    <div style="text-align: right;">
-                        <div style="font-weight: 800; color: var(--gold-dark);">+${h.pontos} pts</div>
-                        ${h.premio ? `<div>${h.premio.icone} ${h.premio.nome}</div>` : ''}
-                    </div>
-                </div>
-            </div>
-        `).join('') : 
-        '<div class="empty-state"><h3>Nenhum resgate ainda</h3></div>';
-}
-
-function renderizarPremiosPublico() {
-    // Implementação básica da visualização pública
-    ['comum', 'incomum', 'raro', 'epico', 'lendario'].forEach(cat => {
-        const container = document.getElementById(`premios${cat.charAt(0).toUpperCase() + cat.slice(1)}`);
-        if (!container) return;
-        
-        container.innerHTML = catalogoPremios[cat].map(p => `
-            <div class="premio-card ${cat}">
-                <span class="premio-raridade">${cat}</span>
-                <div class="premio-icon">${p.icone}</div>
-                <h4 class="premio-nome">${p.nome}</h4>
-                <p class="premio-desc">${p.descricao}</p>
-                <span class="premio-origem ovo">Estoque: ${p.estoque}</span>
-            </div>
-        `).join('');
-    });
 }
 
 // ==========================================
@@ -911,12 +1449,6 @@ function renderizarPremiosPublico() {
 document.addEventListener('DOMContentLoaded', async () => {
     initSupabase();
     if (await inicializarUsuario()) {
-        // Atualizar avatares
-        document.querySelector('.user-avatar').innerHTML = getAvatarHeadHtml(usuarioAtual.habboName, '48px');
-        document.getElementById('mobileProfileAvatar').innerHTML = getAvatarHeadHtml(usuarioAtual.habboName, '56px');
-        document.getElementById('userName').textContent = usuarioAtual.habboName;
-        document.getElementById('mobileUserName').textContent = usuarioAtual.habboName;
-        
         showSection('guia');
     }
 });
