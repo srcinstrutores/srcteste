@@ -99,6 +99,7 @@ let catalogoPremios = {
 let codigosStats = {};
 let todosCodigosLista = [];
 let subscriptions = [];
+let isInitialized = false;
 
 function initSupabase() {
   if (window.supabase) {
@@ -183,10 +184,9 @@ async function inicializarUsuario() {
     };
 
     atualizarUIUsuario();
-    await carregarPremios();
-    await carregarResgates();
-    await carregarTrocas();
-    await carregarCodigosStats();
+    await carregarTodosOsDados();
+    isInitialized = true;
+    
     renderizarGuiaOvos();
     renderizarPremios();
     atualizarStats();
@@ -204,6 +204,15 @@ async function inicializarUsuario() {
     mostrarErroLogin('Erro de autenticação: ' + err.message);
     return false;
   }
+}
+
+async function carregarTodosOsDados() {
+  await Promise.all([
+    carregarPremios(),
+    carregarResgates(),
+    carregarTrocas(),
+    carregarCodigosStats()
+  ]);
 }
 
 function atualizarUIUsuario() {
@@ -250,6 +259,11 @@ async function carregarPremios() {
     .eq('ativo', true)
     .order('nome');
 
+  if (error) {
+    console.error('Erro ao carregar prêmios:', error);
+    return;
+  }
+
   if (data) {
     catalogoPremios = { comum: [], incomum: [], raro: [], epico: [], lendario: [] };
     data.forEach(p => {
@@ -271,11 +285,16 @@ async function carregarPremios() {
 async function carregarResgates() {
   if (!supabaseClient || !usuarioAtual) return;
 
-  const { data } = await supabaseClient
+  const { data, error } = await supabaseClient
     .from('resgates')
     .select('*, premio:premio_id(*)')
     .eq('habbo_name', usuarioAtual.habboName)
     .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Erro ao carregar resgates:', error);
+    return;
+  }
 
   if (data) {
     usuarioAtual.historico = data.map(r => ({
@@ -289,15 +308,21 @@ async function carregarResgates() {
       data: r.created_at,
       status: r.status,
       descricao: r.descricao,
-      comprovante_url: r.comprovante_url
+      comprovante_url: r.comprovante_url,
+      ehTroca: false
     }));
   }
 
   if (isAdmin()) {
-    const { data: todos } = await supabaseClient
+    const { data: todos, error: adminError } = await supabaseClient
       .from('resgates')
       .select('*, premio:premio_id(*)')
       .order('created_at', { ascending: false });
+
+    if (adminError) {
+      console.error('Erro ao carregar resgates admin:', adminError);
+      return;
+    }
 
     if (todos) {
       todosResgates = todos.map(r => ({
@@ -324,14 +349,19 @@ async function carregarResgates() {
 async function carregarTrocas() {
   if (!supabaseClient || !usuarioAtual) return;
 
-  const { data } = await supabaseClient
+  const { data, error } = await supabaseClient
     .from('trocas_premios')
     .select('*')
     .eq('habbo_name', usuarioAtual.habboName)
     .order('created_at', { ascending: false });
 
+  if (error) {
+    console.error('Erro ao carregar trocas:', error);
+    return;
+  }
+
   if (data) {
-    todasTrocas = data.map(t => ({
+    const trocasFormatadas = data.map(t => ({
       id: t.id,
       tipo: 'troca',
       nomeOvo: 'Troca por Prêmio',
@@ -346,16 +376,17 @@ async function carregarTrocas() {
       ehTroca: true
     }));
 
-    usuarioAtual.historico = [...usuarioAtual.historico, ...todasTrocas].sort((a, b) => new Date(b.data) - new Date(a.data));
+    const resgatesSemTrocas = usuarioAtual.historico.filter(h => !h.ehTroca);
+    usuarioAtual.historico = [...resgatesSemTrocas, ...trocasFormatadas].sort((a, b) => new Date(b.data) - new Date(a.data));
   }
 
   if (isAdmin()) {
-    const { data: todas } = await supabaseClient
+    const { data: todas, error: adminError } = await supabaseClient
       .from('trocas_premios')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (todas) {
+    if (!adminError && todas) {
       todasTrocas = todas;
     }
   }
@@ -364,9 +395,14 @@ async function carregarTrocas() {
 async function carregarCodigosStats() {
   if (!isAdmin() || !supabaseClient) return;
 
-  const { data } = await supabaseClient
+  const { data, error } = await supabaseClient
     .from('codigos_ovos')
     .select('tipo, usado');
+
+  if (error) {
+    console.error('Erro ao carregar stats dos códigos:', error);
+    return;
+  }
 
   codigosStats = {};
   if (data) {
@@ -378,6 +414,23 @@ async function carregarCodigosStats() {
       if (c.usado) codigosStats[c.tipo].usados++;
     });
   }
+}
+
+async function carregarTodosCodigos() {
+  if (!isAdmin() || !supabaseClient) return;
+
+  const { data, error } = await supabaseClient
+    .from('codigos_ovos')
+    .select('*, usuario:usado_por(forum_name, habbo_name)')
+    .order('tipo', { ascending: true })
+    .order('codigo', { ascending: true });
+
+  if (error) {
+    console.error('Erro ao carregar códigos:', error);
+    return;
+  }
+
+  todosCodigosLista = data || [];
 }
 
 async function verificarCodigoNoSupabase(codigo) {
@@ -455,7 +508,12 @@ function showSection(section) {
 
   if (section === 'meus') renderizarMeusResgates();
   if (section === 'ranking') renderizarRanking();
-  if (section === 'admin') renderizarAdmin();
+  if (section === 'admin') {
+    renderizarAdmin();
+    if (abaAdminAtiva === 'codigos') {
+      carregarTodosCodigos().then(() => filtrarListaCodigos());
+    }
+  }
   if (section === 'premios') renderizarPremios();
 }
 
@@ -866,12 +924,16 @@ async function verificarLimiteUsuario(tipo) {
   const config = configOvos[tipo];
 
   if (tipo === 'coelhao') {
-    const { data: coelhaoResgatado } = await supabaseClient
+    const { data: coelhaoResgatado, error } = await supabaseClient
       .from('resgates')
       .select('id')
       .eq('tipo_ovo', 'coelhao')
       .eq('status', 'aprovado')
       .maybeSingle();
+
+    if (error) {
+      console.error('Erro ao verificar coelhão:', error);
+    }
 
     if (coelhaoResgatado) {
       return { permitido: false, motivo: 'Você já atingiu o limite de resgates' };
@@ -879,12 +941,16 @@ async function verificarLimiteUsuario(tipo) {
   }
 
   if (config.limitePorUsuario !== Infinity) {
-    const { count } = await supabaseClient
+    const { count, error } = await supabaseClient
       .from('resgates')
       .select('*', { count: 'exact', head: true })
       .eq('habbo_name', usuarioAtual.habboName)
       .eq('tipo_ovo', tipo)
       .eq('status', 'aprovado');
+
+    if (error) {
+      console.error('Erro ao verificar limite:', error);
+    }
 
     if (count >= config.limitePorUsuario) {
       return {
@@ -935,6 +1001,7 @@ function abrirComprovacaoModal() {
 
   const linkInput = document.getElementById('comprovacaoLink');
   if (linkInput) {
+    linkInput.removeEventListener('input', atualizarPreviewLink);
     linkInput.addEventListener('input', atualizarPreviewLink);
   }
 }
@@ -1059,7 +1126,8 @@ async function confirmarComprovacao(e) {
     premio: premioGanho,
     data: resgateData.created_at,
     status: 'pendente',
-    comprovante_url: linkComprovacao
+    comprovante_url: linkComprovacao,
+    ehTroca: false
   });
 
   fecharComprovacaoModal();
@@ -1118,6 +1186,12 @@ function renderizarAdmin() {
 function mudarAbaAdmin(aba) {
   abaAdminAtiva = aba;
   renderizarAdmin();
+  
+  if (aba === 'codigos') {
+    carregarTodosCodigos().then(() => {
+      filtrarListaCodigos();
+    });
+  }
 }
 
 function renderizarAbaAdmin() {
@@ -1385,27 +1459,6 @@ function renderizarAbaCodigos() {
     `;
 }
 
-async function carregarListaCodigos() {
-  const container = document.getElementById('listaCodigosContainer');
-  if (!container) return;
-
-  container.innerHTML = '<p style="color: var(--text-tertiary); text-align: center; padding: 40px;"><i class="fa-solid fa-spinner fa-spin"></i> Carregando códigos...</p>';
-
-  const { data, error } = await supabaseClient
-    .from('codigos_ovos')
-    .select('*, usuario:usado_por(forum_name, habbo_name)')
-    .order('tipo', { ascending: true })
-    .order('codigo', { ascending: true });
-
-  if (error) {
-    container.innerHTML = `<p style="color: var(--danger); text-align: center; padding: 40px;">Erro ao carregar: ${error.message}</p>`;
-    return;
-  }
-
-  todosCodigosLista = data || [];
-  filtrarListaCodigos();
-}
-
 function filtrarListaCodigos() {
   const container = document.getElementById('listaCodigosContainer');
   if (!container) return;
@@ -1507,8 +1560,9 @@ async function excluirCodigo(id, codigo) {
   }
 
   showToast('Excluído!', 'Código removido com sucesso.', 'success');
-  await carregarListaCodigos();
+  await carregarTodosCodigos();
   await carregarCodigosStats();
+  filtrarListaCodigos();
 }
 
 function exportarCodigos() {
@@ -1795,7 +1849,8 @@ async function gerarCodigos(e) {
   showToast('Sucesso!', `${quantidade} códigos gerados!`, 'success');
   fecharCodigoModal();
   await carregarCodigosStats();
-  renderizarAbaAdmin();
+  await carregarTodosCodigos();
+  filtrarListaCodigos();
 }
 
 function findPremioById(id) {
@@ -1825,7 +1880,11 @@ function showToast(title, message, type = 'success') {
 function iniciarSubscriptions() {
   if (!supabaseClient || !usuarioAtual) return;
 
-  subscriptions.forEach(sub => sub.unsubscribe());
+  subscriptions.forEach(sub => {
+    if (sub && typeof sub.unsubscribe === 'function') {
+      sub.unsubscribe();
+    }
+  });
   subscriptions = [];
 
   const resgatesSubscription = supabaseClient
@@ -1838,7 +1897,9 @@ function iniciarSubscriptions() {
     }, (payload) => {
       handleResgateChange(payload);
     })
-    .subscribe();
+    .subscribe((status) => {
+      console.log('Subscription resgates-usuario:', status);
+    });
 
   subscriptions.push(resgatesSubscription);
 
@@ -1852,7 +1913,9 @@ function iniciarSubscriptions() {
     }, (payload) => {
       handlePontosChange(payload);
     })
-    .subscribe();
+    .subscribe((status) => {
+      console.log('Subscription pontos-usuario:', status);
+    });
 
   subscriptions.push(pontosSubscription);
 
@@ -1866,7 +1929,9 @@ function iniciarSubscriptions() {
     }, (payload) => {
       handleTrocasChange(payload);
     })
-    .subscribe();
+    .subscribe((status) => {
+      console.log('Subscription trocas-usuario:', status);
+    });
 
   subscriptions.push(trocasSubscription);
 
@@ -1880,7 +1945,9 @@ function iniciarSubscriptions() {
       }, (payload) => {
         handleAdminResgateChange(payload);
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Subscription resgates-admin:', status);
+      });
 
     subscriptions.push(adminResgatesSubscription);
 
@@ -1893,7 +1960,9 @@ function iniciarSubscriptions() {
       }, (payload) => {
         handleAdminTrocasChange(payload);
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Subscription trocas-admin:', status);
+      });
 
     subscriptions.push(adminTrocasSubscription);
 
@@ -1906,7 +1975,9 @@ function iniciarSubscriptions() {
       }, (payload) => {
         handlePremiosChange(payload);
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Subscription premios-admin:', status);
+      });
 
     subscriptions.push(premiosSubscription);
 
@@ -1919,18 +1990,22 @@ function iniciarSubscriptions() {
       }, (payload) => {
         handleCodigosChange(payload);
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Subscription codigos-admin:', status);
+      });
 
     subscriptions.push(codigosSubscription);
   }
 }
 
 async function handleResgateChange(payload) {
-  await recarregarDadosUsuario();
+  console.log('Resgate change:', payload);
+  await carregarResgates();
   atualizarUIEmTempoReal();
 }
 
 async function handlePontosChange(payload) {
+  console.log('Pontos change:', payload);
   const { new: newRecord } = payload;
   
   if (newRecord && newRecord.pontos !== undefined) {
@@ -1941,11 +2016,13 @@ async function handlePontosChange(payload) {
 }
 
 async function handleTrocasChange(payload) {
+  console.log('Trocas change:', payload);
   await carregarTrocas();
   atualizarUIEmTempoReal();
 }
 
 async function handleAdminResgateChange(payload) {
+  console.log('Admin resgate change:', payload);
   const { eventType, new: newRecord } = payload;
 
   await carregarResgates();
@@ -1962,6 +2039,7 @@ async function handleAdminResgateChange(payload) {
 }
 
 async function handleAdminTrocasChange(payload) {
+  console.log('Admin trocas change:', payload);
   const { eventType, new: newRecord } = payload;
 
   await carregarTrocas();
@@ -1978,6 +2056,7 @@ async function handleAdminTrocasChange(payload) {
 }
 
 async function handlePremiosChange(payload) {
+  console.log('Premios change:', payload);
   await carregarPremios();
   
   const premiosSection = document.getElementById('section-premios');
@@ -1993,51 +2072,17 @@ async function handlePremiosChange(payload) {
 }
 
 async function handleCodigosChange(payload) {
+  console.log('Codigos change:', payload);
   await carregarCodigosStats();
   
+  if (abaAdminAtiva === 'codigos') {
+    await carregarTodosCodigos();
+    filtrarListaCodigos();
+  }
+  
   const adminSection = document.getElementById('section-admin');
-  if (adminSection && !adminSection.classList.contains('hidden') && abaAdminAtiva === 'codigos') {
+  if (adminSection && !adminSection.classList.contains('hidden')) {
     renderizarAbaAdmin();
-    carregarListaCodigos();
-  }
-}
-
-async function recarregarDadosUsuario() {
-  if (!supabaseClient || !usuarioAtual) return;
-
-  const { data: resgates } = await supabaseClient
-    .from('resgates')
-    .select('*, premio:premio_id(*)')
-    .eq('habbo_name', usuarioAtual.habboName)
-    .order('created_at', { ascending: false });
-
-  if (resgates) {
-    usuarioAtual.historico = resgates.map(r => ({
-      id: r.id,
-      tipo: r.tipo_ovo,
-      nomeOvo: configOvos[r.tipo_ovo]?.nome || r.tipo_ovo,
-      emoji: configOvos[r.tipo_ovo]?.emoji || '🥚',
-      codigo: r.codigo,
-      pontos: r.pontos,
-      premio: r.premio,
-      data: r.created_at,
-      status: r.status,
-      descricao: r.descricao,
-      comprovante_url: r.comprovante_url
-    }));
-  }
-
-  await carregarTrocas();
-
-  const { data: userData } = await supabaseClient
-    .from('usuarios')
-    .select('pontos, ovos_resgatados')
-    .eq('id', usuarioAtual.id)
-    .single();
-
-  if (userData) {
-    usuarioAtual.pontos = userData.pontos || 0;
-    usuarioAtual.ovosResgatados = userData.ovos_resgatados || {};
   }
 }
 
@@ -2111,21 +2156,25 @@ function animarContador(elemento, de, para) {
 }
 
 function tocarSomNotificacao() {
-  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  const oscillator = audioContext.createOscillator();
-  const gainNode = audioContext.createGain();
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
 
-  oscillator.connect(gainNode);
-  gainNode.connect(audioContext.destination);
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
 
-  oscillator.frequency.value = 800;
-  oscillator.type = 'sine';
-  
-  gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+    oscillator.frequency.value = 800;
+    oscillator.type = 'sine';
+    
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
 
-  oscillator.start(audioContext.currentTime);
-  oscillator.stop(audioContext.currentTime + 0.5);
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.5);
+  } catch (e) {
+    console.log('Som não suportado');
+  }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
