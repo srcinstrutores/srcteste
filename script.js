@@ -1071,112 +1071,6 @@ function fecharComprovacaoModal() {
   resgatePendente = null;
 }
 
-function previewComprovacao(input) {
-  if (input.files && input.files[0]) {
-    const reader = new FileReader();
-    reader.onload = function (e) {
-      const previewImg = document.getElementById('previewImage');
-      const previewDiv = document.getElementById('filePreview');
-      if (previewImg) previewImg.src = e.target.result;
-      if (previewDiv) previewDiv.style.display = 'block';
-    };
-    reader.readAsDataURL(input.files[0]);
-  }
-}
-
-async function confirmarComprovacao(e) {
-  e.preventDefault();
-  if (!resgatePendente || !usuarioAtual) return;
-
-  const descricao = document.getElementById('comprovacaoDesc')?.value || '';
-  const fileInput = document.getElementById('comprovacaoFile');
-  const file = fileInput?.files[0];
-  const config = resgatePendente.config;
-
-  // Determinar prêmio
-  let premioGanho = null;
-  let premioId = null;
-
-  if (config.premioGarantido) {
-    const disponiveis = catalogoPremios.lendario.filter(p => p.estoque > 0);
-    if (disponiveis.length > 0) {
-      premioGanho = disponiveis[0];
-      premioId = premioGanho.id;
-    }
-  } else if (config.chancePremio > 0 && Math.random() < config.chancePremio) {
-    const cat = config.id === 'lendario' ? 'lendario' : config.id === 'epico' ? 'epico' : 'raro';
-    const disponiveis = catalogoPremios[cat].filter(p => p.estoque > 0);
-    if (disponiveis.length > 0) {
-      premioGanho = disponiveis[Math.floor(Math.random() * disponiveis.length)];
-      premioId = premioGanho.id;
-    }
-  }
-
-  // Upload imagem
-  let comprovanteUrl = null;
-  if (file && supabaseClient) {
-    const fileName = `${usuarioAtual.id}/${Date.now()}.${file.name.split('.').pop()}`;
-    const { data: upload } = await supabaseClient.storage.from('comprovantes').upload(fileName, file);
-    if (upload) {
-      const { data: { publicUrl } } = supabaseClient.storage.from('comprovantes').getPublicUrl(fileName);
-      comprovanteUrl = publicUrl;
-    }
-  }
-
-  // Salvar resgate
-  const { data: resgateData, error } = await supabaseClient
-    .from('resgates')
-    .insert([{
-      usuario_id: usuarioAtual.id,
-      habbo_name: usuarioAtual.habboName,
-      forum_name: usuarioAtual.forumName,
-      tipo_ovo: resgatePendente.tipo,
-      codigo: resgatePendente.codigo,
-      pontos: config.pontos,
-      premio_id: premioId,
-      descricao: descricao,
-      comprovante_url: comprovanteUrl,
-      status: 'pendente'
-    }])
-    .select()
-    .single();
-
-  if (error) {
-    showToast('Erro', 'Falha ao salvar: ' + error.message, 'error');
-    return;
-  }
-
-  // Marcar código como usado
-  await supabaseClient
-    .from('codigos_ovos')
-    .update({ usado: true, usado_por: usuarioAtual.id, usado_em: new Date().toISOString() })
-    .eq('id', resgatePendente.codigoId);
-
-  // Atualizar local
-  usuarioAtual.historico.unshift({
-    id: resgateData.id,
-    tipo: resgatePendente.tipo,
-    nomeOvo: config.nome,
-    emoji: config.emoji,
-    codigo: resgatePendente.codigo,
-    pontos: config.pontos,
-    premio: premioGanho,
-    data: resgateData.created_at,
-    status: 'pendente'
-  });
-
-  fecharComprovacaoModal();
-  const input = document.getElementById('codigoInput');
-  if (input) input.value = '';
-
-  showToast('Sucesso!', 'Resgate enviado para aprovação.', 'success');
-  renderizarMeusResgates();
-  if (isAdmin()) {
-    await carregarResgates();
-    renderizarAdmin();
-  }
-}
-
 function fecharResultadoModal() {
   const modal = document.getElementById('resultadoModal');
   if (modal) modal.classList.remove('active');
@@ -1999,11 +1893,287 @@ function showToast(title, message, type = 'success') {
 }
 
 // ==========================================
-// INICIALIZAÇÃO
+// SUBSCRIPTIONS EM TEMPO REAL
 // ==========================================
+
+let subscriptions = [];
+
+function iniciarSubscriptions() {
+  if (!supabaseClient || !usuarioAtual) return;
+
+  // Limpar subscriptions anteriores
+  subscriptions.forEach(sub => sub.unsubscribe());
+  subscriptions = [];
+
+  // 1. Subscription de resgates do usuário atual
+  const resgatesSubscription = supabaseClient
+    .channel('resgates-usuario')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'resgates',
+      filter: `habbo_name=eq.${usuarioAtual.habboName}`
+    }, (payload) => {
+      console.log('Mudança em resgates:', payload);
+      handleResgateChange(payload);
+    })
+    .subscribe();
+
+  subscriptions.push(resgatesSubscription);
+
+  // 2. Subscription de atualizações de pontos do usuário
+  const pontosSubscription = supabaseClient
+    .channel('pontos-usuario')
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'usuarios',
+      filter: `forum_name=eq.${usuarioAtual.forumName}`
+    }, (payload) => {
+      console.log('Mudança em pontos:', payload);
+      handlePontosChange(payload);
+    })
+    .subscribe();
+
+  subscriptions.push(pontosSubscription);
+
+  // 3. Se for admin, subscription de TODOS os resgates (para o painel admin)
+  if (isAdmin()) {
+    const adminResgatesSubscription = supabaseClient
+      .channel('resgates-admin')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'resgates'
+      }, (payload) => {
+        console.log('Mudança admin em resgates:', payload);
+        handleAdminResgateChange(payload);
+      })
+      .subscribe();
+
+    subscriptions.push(adminResgatesSubscription);
+
+    // 4. Subscription de prêmios (estoque)
+    const premiosSubscription = supabaseClient
+      .channel('premios-admin')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'premios'
+      }, (payload) => {
+        console.log('Mudança em prêmios:', payload);
+        handlePremiosChange(payload);
+      })
+      .subscribe();
+
+    subscriptions.push(premiosSubscription);
+  }
+}
+
+// Handlers das mudanças
+async function handleResgateChange(payload) {
+  const { eventType, new: newRecord, old: oldRecord } = payload;
+
+  // Atualizar histórico local
+  await recarregarDadosUsuario();
+
+  // Atualizar UI atual
+  atualizarUIEmTempoReal();
+}
+
+async function handlePontosChange(payload) {
+  const { new: newRecord } = payload;
+  
+  if (newRecord && newRecord.pontos !== undefined) {
+    usuarioAtual.pontos = newRecord.pontos;
+    atualizarStats();
+    atualizarUIPontos();
+  }
+}
+
+async function handleAdminResgateChange(payload) {
+  const { eventType, new: newRecord } = payload;
+
+  // Recarregar todos os resgates
+  await carregarResgates();
+
+  // Se estiver na aba admin, re-renderizar
+  const adminSection = document.getElementById('section-admin');
+  if (adminSection && !adminSection.classList.contains('hidden')) {
+    renderizarAbaAdmin();
+  }
+
+  // Mostrar notificação se for um novo resgate pendente
+  if (eventType === 'INSERT' && newRecord.status === 'pendente') {
+    showToast('Novo Resgate!', `${newRecord.habbo_name} resgatou um código!`, 'success');
+    
+    // Tocar som de notificação (opcional)
+    tocarSomNotificacao();
+  }
+}
+
+async function handlePremiosChange(payload) {
+  await carregarPremios();
+  
+  // Atualizar se estiver na loja ou admin
+  const premiosSection = document.getElementById('section-premios');
+  const adminSection = document.getElementById('section-admin');
+  
+  if (premiosSection && !premiosSection.classList.contains('hidden')) {
+    renderizarPremios();
+  }
+  
+  if (adminSection && !adminSection.classList.contains('hidden')) {
+    renderizarAbaAdmin();
+  }
+}
+
+// Função para recarregar dados do usuário
+async function recarregarDadosUsuario() {
+  if (!supabaseClient || !usuarioAtual) return;
+
+  // Recarregar histórico
+  const { data: resgates } = await supabaseClient
+    .from('resgates')
+    .select('*, premio:premio_id(*)')
+    .eq('habbo_name', usuarioAtual.habboName)
+    .order('created_at', { ascending: false });
+
+  if (resgates) {
+    usuarioAtual.historico = resgates.map(r => ({
+      id: r.id,
+      tipo: r.tipo_ovo,
+      nomeOvo: configOvos[r.tipo_ovo]?.nome || r.tipo_ovo,
+      emoji: configOvos[r.tipo_ovo]?.emoji || '🥚',
+      codigo: r.codigo,
+      pontos: r.pontos,
+      premio: r.premio,
+      data: r.created_at,
+      status: r.status,
+      descricao: r.descricao,
+      comprovante_url: r.comprovante_url
+    }));
+  }
+
+  // Recarregar pontos atualizados
+  const { data: userData } = await supabaseClient
+    .from('usuarios')
+    .select('pontos, ovos_resgatados')
+    .eq('id', usuarioAtual.id)
+    .single();
+
+  if (userData) {
+    usuarioAtual.pontos = userData.pontos || 0;
+    usuarioAtual.ovosResgatados = userData.ovos_resgatados || {};
+  }
+}
+
+// Atualizar UI sem recarregar a página
+function atualizarUIEmTempoReal() {
+  // Atualizar estatísticas no header
+  atualizarStats();
+
+  // Atualizar seção atual
+  const sections = {
+    'section-guia': () => {
+      atualizarStats();
+      renderizarMeusResgates(); // Atualiza últimos resgates no guia
+    },
+    'section-resgatar': () => {
+      renderizarMeusResgates();
+    },
+    'section-premios': () => {
+      renderizarPremios();
+    },
+    'section-meus': () => {
+      renderizarMeusResgates();
+    },
+    'section-ranking': () => {
+      renderizarRanking();
+    },
+    'section-admin': () => {
+      renderizarAdmin();
+    }
+  };
+
+  // Encontrar qual seção está visível e atualizar ela
+  for (const [id, updateFunc] of Object.entries(sections)) {
+    const section = document.getElementById(id);
+    if (section && !section.classList.contains('hidden')) {
+      updateFunc();
+      break;
+    }
+  }
+}
+
+function atualizarUIPontos() {
+  // Atualizar todos os elementos que mostram pontos
+  const elementosPontos = [
+    'userPoints',
+    'saldoPontosLoja',
+    'meusPontosTotal'
+  ];
+
+  elementosPontos.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      // Animação de contador
+      animarContador(el, parseInt(el.textContent) || 0, usuarioAtual.pontos);
+    }
+  });
+}
+
+// Animação suave de contador
+function animarContador(elemento, de, para) {
+  const duracao = 1000;
+  const inicio = performance.now();
+
+  function atualizar(tempoAtual) {
+    const elapsed = tempoAtual - inicio;
+    const progresso = Math.min(elapsed / duracao, 1);
+    
+    // Easing ease-out
+    const easeOut = 1 - Math.pow(1 - progresso, 3);
+    const valorAtual = Math.round(de + (para - de) * easeOut);
+    
+    elemento.textContent = valorAtual;
+
+    if (progresso < 1) {
+      requestAnimationFrame(atualizar);
+    }
+  }
+
+  requestAnimationFrame(atualizar);
+}
+
+// Som de notificação (opcional)
+function tocarSomNotificacao() {
+  // Criar um beep simples
+  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+
+  oscillator.frequency.value = 800;
+  oscillator.type = 'sine';
+  
+  gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+  oscillator.start(audioContext.currentTime);
+  oscillator.stop(audioContext.currentTime + 0.5);
+}
+
+// ==========================================
+// MODIFICAR INICIALIZAÇÃO
+// ==========================================
+
 document.addEventListener('DOMContentLoaded', async () => {
   initSupabase();
   if (await inicializarUsuario()) {
     showSection('guia');
+    iniciarSubscriptions(); // ← INICIAR SUBSCRIPTIONS AQUI
   }
 });
