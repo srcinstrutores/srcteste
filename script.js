@@ -1,5 +1,5 @@
-const SUPABASE_URL = 'https://seu-projeto.supabase.co';
-const SUPABASE_KEY = 'sua-chave-anon';
+const SUPABASE_URL = 'https://gjxlapydpafwvyohovhj.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqeGxhcHlkcGFmd3Z5b2hvdmhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDc3NTIsImV4cCI6MjA4NzcyMzc1Mn0.ni9szYqdrFWz3HcwYuOZaBFgcFddDoYSyZEakSQho-c';
 let supabaseClient = null;
 
 const CARGOS_IGNORADOS = ['fiscalizador', 'diretor', 'vice-presidente', 'presidente'];
