@@ -17,7 +17,8 @@ const configOvos = {
     cor: '#8B4513',
     quantidadeTotal: 50,
     pontos: 5,
-    limitePorUsuario: Infinity,
+    limitePorUsuario: Infinity, // ILIMITADO
+    limitePorOvo: Infinity, // Cada código pode ser usado infinitas vezes? NÃO - cada código é único, mas o usuário pode resgatar quantos quiser
     descricao: 'Ovos espalhados por toda a companhia. Fáceis de encontrar em páginas ou quartos comuns.',
     chancePremio: 0
   },
@@ -28,7 +29,8 @@ const configOvos = {
     cor: '#22c55e',
     quantidadeTotal: 25,
     pontos: 10,
-    limitePorUsuario: 10,
+    limitePorUsuario: 10, // Limite de 10 resgates por usuário (de ovos incomuns diferentes)
+    limitePorOvo: 1, // Cada código de ovo incomum pode ser usado 1 vez
     descricao: 'Ovos escondidos em locais que requerem mais atenção. Valor médio de recompensa.',
     chancePremio: 0
   },
@@ -39,7 +41,8 @@ const configOvos = {
     cor: '#3b82f6',
     quantidadeTotal: 15,
     pontos: 30,
-    limitePorUsuario: 5,
+    limitePorUsuario: 5, // Limite de 5 resgates por usuário
+    limitePorOvo: 1, // Cada código pode ser usado 1 vez
     descricao: 'Ovos bem escondidos. Requer dedicação para encontrar. Boas recompensas!',
     chancePremio: 0.1
   },
@@ -50,7 +53,8 @@ const configOvos = {
     cor: '#a855f7',
     quantidadeTotal: 7,
     pontos: 50,
-    limitePorUsuario: 1,
+    limitePorUsuario: 1, // Limite de 1 resgate por usuário
+    limitePorOvo: 1, // Cada código pode ser usado 1 vez
     descricao: 'Ovos extremamente raros! Grande chance de ganhar prêmios épicos.',
     chancePremio: 0.4
   },
@@ -61,7 +65,8 @@ const configOvos = {
     cor: '#f59e0b',
     quantidadeTotal: 3,
     pontos: 100,
-    limitePorUsuario: 1,
+    limitePorUsuario: 1, // Limite de 1 resgate por usuário
+    limitePorOvo: 1, // Cada código pode ser usado 1 vez
     descricao: 'Ovos quase impossíveis de encontrar! Alta chance de prêmios lendários.',
     chancePremio: 0.6
   },
@@ -72,7 +77,9 @@ const configOvos = {
     cor: 'gradient',
     quantidadeTotal: 1,
     pontos: 500,
-    limitePorUsuario: 1,
+    limitePorUsuario: 1, // Apenas 1 por usuário
+    limitePorOvo: 1, // Apenas 1 pessoa no total pode resgatar
+    unicoGlobal: true, // Apenas UM membro da companhia inteira pode ter
     descricao: 'O GRANDE PRÊMIO! Existe apenas UM na companhia inteira. Prêmio único garantido!',
     premioGarantido: true,
     chancePremio: 1
@@ -299,7 +306,8 @@ async function carregarResgates() {
       premio: r.premio,
       data: r.created_at,
       status: r.status,
-      descricao: r.descricao
+      descricao: r.descricao,
+      comprovante_url: r.comprovante_url // GARANTIR QUE ESTÁ AQUI
     }));
   }
 
@@ -326,7 +334,7 @@ async function carregarResgates() {
         data: r.created_at,
         status: r.status,
         descricao: r.descricao,
-        comprovante_url: r.comprovante_url
+        comprovante_url: r.comprovante_url // GARANTIR QUE ESTÁ AQUI
       }));
     }
   }
@@ -489,6 +497,11 @@ function renderizarPremios() {
   ];
 
   let totalPremios = 0;
+  const saldoAtual = usuarioAtual?.pontos || 0;
+
+  // Atualizar saldo destacado
+  const saldoEl = document.getElementById('saldoPontosLoja');
+  if (saldoEl) saldoEl.textContent = saldoAtual;
 
   categorias.forEach(cat => {
     const container = document.getElementById(`premios${cat.nome}`);
@@ -502,19 +515,105 @@ function renderizarPremios() {
       return;
     }
 
-    container.innerHTML = premios.map(p => `
-            <div class="premio-card ${cat.cor}">
-                <span class="premio-raridade">${cat.nome}</span>
-                <div class="premio-icon">${p.icone}</div>
-                <h4 class="premio-nome">${p.nome}</h4>
-                <p class="premio-desc">${p.descricao || 'Sem descrição'}</p>
-                <span class="premio-origem ovo">Estoque: ${p.estoque}</span>
-            </div>
-        `).join('');
+    container.innerHTML = premios.map(p => {
+      const podeTrocar = saldoAtual >= p.estoque; // Aqui você define o custo. Estou usando estoque como custo temporariamente
+      // Ou defina um custo fixo por categoria:
+      const custo = cat.id === 'comum' ? 50 : cat.id === 'incomum' ? 100 : cat.id === 'raro' ? 200 : cat.id === 'epico' ? 350 : 500;
+      const podeComprar = saldoAtual >= custo && p.estoque > 0;
+
+      return `
+                <div class="premio-card ${cat.cor}" style="${!podeComprar ? 'opacity: 0.7;' : ''}">
+                    <span class="premio-raridade">${cat.nome}</span>
+                    <div class="premio-icon">${p.icone}</div>
+                    <h4 class="premio-nome">${p.nome}</h4>
+                    <p class="premio-desc">${p.descricao || 'Sem descrição'}</p>
+                    
+                    <div style="background: var(--bg-secondary); padding: 12px; border-radius: 8px; margin: 12px 0; text-align: center;">
+                        <div style="font-size: 20px; font-weight: 800; color: var(--gold-dark);">
+                            <i class="fa-solid fa-coins"></i> ${custo} pontos
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 4px;">
+                            Estoque: ${p.estoque} unidades
+                        </div>
+                    </div>
+
+                    <button class="btn ${podeComprar ? 'btn-primary' : 'btn-secondary'}" 
+                            style="width: 100%;" 
+                            onclick="trocarPontosPorPremio('${p.id}', '${cat.id}', ${custo})"
+                            ${!podeComprar ? 'disabled' : ''}>
+                        ${podeComprar ? '<i class="fa-solid fa-exchange-alt"></i> Trocar Agora' :
+          saldoAtual < custo ? '<i class="fa-solid fa-lock"></i> Pontos Insuficientes' : '<i class="fa-solid fa-lock"></i> Sem Estoque'}
+                    </button>
+                </div>
+            `;
+    }).join('');
   });
 
   const totalBadge = document.getElementById('totalPremios');
   if (totalBadge) totalBadge.textContent = `${totalPremios} prêmios`;
+}
+
+// Função de troca de pontos por prêmio
+async function trocarPontosPorPremio(premioId, categoria, custo) {
+  if (!usuarioAtual || usuarioAtual.pontos < custo) {
+    showToast('Erro', 'Você não tem pontos suficientes!', 'error');
+    return;
+  }
+
+  const premio = findPremioById(premioId);
+  if (!premio || premio.estoque <= 0) {
+    showToast('Erro', 'Este prêmio está esgotado!', 'error');
+    return;
+  }
+
+  if (!confirm(`Deseja trocar ${custo} pontos por: ${premio.icone} ${premio.nome}?\n\nSeu saldo atual: ${usuarioAtual.pontos} pontos\nSaldo após a troca: ${usuarioAtual.pontos - custo} pontos`)) {
+    return;
+  }
+
+  // Criar registro de troca
+  const { data: trocaData, error: trocaError } = await supabaseClient
+    .from('trocas_premios')
+    .insert([{
+      usuario_id: usuarioAtual.id,
+      habbo_name: usuarioAtual.habboName,
+      forum_name: usuarioAtual.forumName,
+      premio_id: premioId,
+      premio_nome: premio.nome,
+      custo_pontos: custo,
+      status: 'pendente' // Aguarda entrega do prêmio no Habbo
+    }])
+    .select()
+    .single();
+
+  if (trocaError) {
+    showToast('Erro', trocaError.message, 'error');
+    return;
+  }
+
+  // Decrementar pontos do usuário
+  const { error: pontosError } = await supabaseClient
+    .from('usuarios')
+    .update({ pontos: usuarioAtual.pontos - custo })
+    .eq('id', usuarioAtual.id);
+
+  if (pontosError) {
+    showToast('Erro', 'Erro ao debitar pontos: ' + pontosError.message, 'error');
+    return;
+  }
+
+  // Decrementar estoque do prêmio
+  await supabaseClient.rpc('decrementar_estoque', { premio_id: premioId });
+
+  // Atualizar local
+  usuarioAtual.pontos -= custo;
+  premio.estoque--;
+
+  showToast('Troca Realizada!', `Você trocou ${custo} pontos por ${premio.nome}. Aguarde a entrega no Habbo!`, 'success');
+  renderizarPremios();
+  atualizarStats();
+
+  // Se estiver na seção "meus", atualizar também
+  renderizarMeusResgates();
 }
 
 // ==========================================
@@ -754,10 +853,10 @@ async function iniciarResgateCodigo() {
 
   const config = configOvos[verificacao.tipo];
 
-  // Verificar limite do usuário
-  const jaResgatados = usuarioAtual.ovosResgatados?.[verificacao.tipo] || 0;
-  if (jaResgatados >= config.limitePorUsuario) {
-    showToast('Limite Atingido', `Você já resgatou o máximo de ${config.nome}(s)!`, 'error');
+  // NOVA VERIFICAÇÃO DE LIMITE
+  const limiteCheck = await verificarLimiteUsuario(verificacao.tipo);
+  if (!limiteCheck.permitido) {
+    showToast('Limite Atingido', limiteCheck.motivo, 'error');
     return;
   }
 
@@ -1221,6 +1320,43 @@ function renderizarAbaResgates() {
             </div>
         </div>
     `;
+}
+
+async function verificarLimiteUsuario(tipo) {
+  const config = configOvos[tipo];
+
+  // Verificar se é o coelhão e se já foi resgatado por alguém
+  if (tipo === 'coelhao') {
+    const { data: coelhaoResgatado } = await supabaseClient
+      .from('resgates')
+      .select('id')
+      .eq('tipo_ovo', 'coelhao')
+      .eq('status', 'aprovado')
+      .maybeSingle();
+
+    if (coelhaoResgatado) {
+      return { permitido: false, motivo: 'O Coelhão já foi resgatado por outro membro! É único na companhia.' };
+    }
+  }
+
+  // Verificar limite por usuário
+  if (config.limitePorUsuario !== Infinity) {
+    const { count } = await supabaseClient
+      .from('resgates')
+      .select('*', { count: 'exact', head: true })
+      .eq('habbo_name', usuarioAtual.habboName)
+      .eq('tipo_ovo', tipo)
+      .eq('status', 'aprovado'); // Só conta os aprovados
+
+    if (count >= config.limitePorUsuario) {
+      return {
+        permitido: false,
+        motivo: `Você já resgatou o limite de ${config.limitePorUsuario} ${config.nome}(s)!`
+      };
+    }
+  }
+
+  return { permitido: true };
 }
 
 function renderizarAbaPremios() {
