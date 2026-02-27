@@ -1,4 +1,7 @@
-const SUPABASE_URL = 'https://gjxlapydpafwvyohovhj.supabase.co';
+// ============================================
+// CONFIGURAÇÃO
+// ============================================
+const SUPABASE_URL = 'https://gjxlapydpafwvyohovhj.supabase.co'; // SEM ESPAÇO
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqeGxhcHlkcGFmd3Z5b2hvdmhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDc3NTIsImV4cCI6MjA4NzcyMzc1Mn0.ni9szYqdrFWz3HcwYuOZaBFgcFddDoYSyZEakSQho-c';
 
 let supabaseClient = null;
@@ -26,8 +29,17 @@ let state = {
   subscriptions: []
 };
 
+let resgatePendente = null;
+let rankingTipo = 'pontos';
+
+// ============================================
+// INICIALIZAÇÃO
+// ============================================
 function init() {
-  if (!window.supabase) return;
+  if (!window.supabase) {
+    console.error('Supabase não carregado');
+    return;
+  }
   supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     realtime: { params: { eventsPerSecond: 10 } }
   });
@@ -39,18 +51,30 @@ async function getForumUser() {
     const html = await res.text();
     const match = html.match(/_userdata\["username"\]\s*=\s*"([^"]+)"/);
     if (match) {
-      localStorage.setItem('forumUser', match[1].trim());
-      return match[1].trim();
+      const username = match[1].trim();
+      localStorage.setItem('forumUser', username);
+      return username;
     }
-  } catch {
-    return localStorage.getItem('forumUser');
+  } catch (e) {
+    console.log('Erro ao pegar usuário do fórum:', e);
   }
+  return localStorage.getItem('forumUser');
 }
 
 async function loadMembros() {
+  // URL SEM ESPAÇO
   const res = await fetch('https://script.google.com/macros/s/AKfycbzhJdbeZfxkHgh3cQrK_YlhBCuhZyLhM_9jYkAnCPmbz-aYpv7845740KySuhjTzdIb/exec');
   const data = await res.json();
   state.membros = data.filter(m => !CARGOS_ADMIN.includes(m.cargo.toLowerCase()));
+}
+
+// ============================================
+// SETAR USUÁRIO NA SESSÃO (IMPORTANTE PARA RLS)
+// ============================================
+async function setSessionUser(forumName) {
+  if (!forumName) return;
+  // Chama a função SQL para setar a variável de sessão
+  await supabaseClient.rpc('set_forum_user', { forum_name: forumName });
 }
 
 async function initUser() {
@@ -67,10 +91,17 @@ async function initUser() {
     return false;
   }
 
-  let { data: user } = await supabaseClient.from('usuarios').select('*').eq('forum_name', forumName).single();
+  // SETAR USUÁRIO NA SESSÃO ANTES DAS QUERIES
+  await setSessionUser(forumName);
+
+  let { data: user } = await supabaseClient
+    .from('usuarios')
+    .select('*')
+    .eq('forum_name', forumName)
+    .single();
 
   if (!user) {
-    const { data: newUser } = await supabaseClient
+    const { data: newUser, error } = await supabaseClient
       .from('usuarios')
       .insert([{
         forum_name: forumName,
@@ -81,6 +112,11 @@ async function initUser() {
       }])
       .select()
       .single();
+    
+    if (error) {
+      showError('Erro ao criar usuário: ' + error.message);
+      return false;
+    }
     user = newUser;
   }
 
@@ -93,6 +129,9 @@ async function initUser() {
     isAdmin: user.is_admin || false,
     ovosResgatados: user.ovos_resgatados || {}
   };
+
+  // Atualizar sessão novamente após confirmar usuário
+  await setSessionUser(forumName);
 
   updateUIUser();
   await loadAllData();
@@ -116,7 +155,12 @@ async function loadAllData() {
 }
 
 async function loadPremios() {
-  const { data } = await supabaseClient.from('premios').select('*').eq('ativo', true).order('nome');
+  const { data } = await supabaseClient
+    .from('premios')
+    .select('*')
+    .eq('ativo', true)
+    .order('nome');
+    
   state.premios = { comum: [], incomum: [], raro: [], epico: [], lendario: [] };
   if (data) {
     data.forEach(p => {
@@ -128,6 +172,9 @@ async function loadPremios() {
 }
 
 async function loadResgates() {
+  // SETAR SESSÃO ANTES DA QUERY
+  await setSessionUser(state.user?.forumName);
+
   const { data } = await supabaseClient
     .from('resgates')
     .select('*, premio:premio_id(*)')
@@ -146,6 +193,8 @@ async function loadResgates() {
 }
 
 async function loadTrocas() {
+  await setSessionUser(state.user?.forumName);
+
   const { data } = await supabaseClient
     .from('trocas')
     .select('*')
@@ -155,7 +204,10 @@ async function loadTrocas() {
   state.trocas = data || [];
 
   if (state.user.isAdmin) {
-    const { data: all } = await supabaseClient.from('trocas').select('*').order('created_at', { ascending: false });
+    const { data: all } = await supabaseClient
+      .from('trocas')
+      .select('*')
+      .order('created_at', { ascending: false });
     state.allTrocas = all || [];
   }
 }
@@ -163,6 +215,8 @@ async function loadTrocas() {
 async function loadCodigos() {
   if (!state.user.isAdmin) return;
   
+  await setSessionUser(state.user?.forumName);
+
   const { data } = await supabaseClient
     .from('codigos')
     .select('*, usuario:usado_por(habbo_name)')
@@ -171,6 +225,9 @@ async function loadCodigos() {
   state.codigos = data || [];
 }
 
+// ============================================
+// REALTIME
+// ============================================
 function setupRealtime() {
   state.subscriptions.forEach(s => s?.unsubscribe?.());
   state.subscriptions = [];
@@ -257,6 +314,9 @@ function setupRealtime() {
   }
 }
 
+// ============================================
+// RENDERIZAÇÃO
+// ============================================
 function renderAll() {
   renderGuia();
   renderPremios();
@@ -320,16 +380,24 @@ function updateSaldo() {
   document.getElementById('saldoPontosLoja').textContent = state.user.pontos;
 }
 
+// ============================================
+// AVATARES (URLs CORRIGIDAS - SEM ESPAÇOS)
+// ============================================
 function getAvatar(name, size = 's') {
+  // URL SEM ESPAÇO DEPOIS DE "user="
   return `<img src="https://www.habbo.com.br/habbo-imaging/avatarimage?user=${encodeURIComponent(name)}&headonly=1&size=${size}" 
     style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" onerror="this.style.display='none'; this.parentElement.textContent='🐰';">`;
 }
 
 function getBody(name, size = 'l') {
+  // URL SEM ESPAÇO DEPOIS DE "user="
   return `<img src="https://www.habbo.com.br/habbo-imaging/avatarimage?user=${encodeURIComponent(name)}&size=${size}" 
     style="height: 100%; width: auto; object-fit: contain;" onerror="this.style.display='none'; this.parentElement.textContent='🐰';">`;
 }
 
+// ============================================
+// GUIA
+// ============================================
 function renderGuia() {
   const container = document.getElementById('guiaOvosLista');
   if (!container) return;
@@ -362,6 +430,9 @@ function renderResgatar() {
   renderMeusResgatesRecentes();
 }
 
+// ============================================
+// PRÊMIOS
+// ============================================
 function renderPremios() {
   updateSaldo();
   
@@ -423,6 +494,8 @@ async function comprarPremio(premioId, categoria, custo) {
 
   if (!confirm(`Trocar ${custo} pontos por ${premio.nome}?\n\nSaldo atual: ${state.user.pontos}\nSaldo após: ${state.user.pontos - custo}`)) return;
 
+  await setSessionUser(state.user.forumName);
+
   const { error: trocaError } = await supabaseClient.from('trocas').insert([{
     usuario_id: state.user.id,
     habbo_name: state.user.habboName,
@@ -468,6 +541,9 @@ async function comprarPremio(premioId, categoria, custo) {
   updateSaldo();
 }
 
+// ============================================
+// MEUS RESGATES
+// ============================================
 function renderMeus() {
   renderMeusResgatesCompletos();
 }
@@ -569,21 +645,33 @@ function renderItemHistorico(h, completo = false) {
   `;
 }
 
-function renderRanking() {
+// ============================================
+// RANKING (CORRIGIDO)
+// ============================================
+async function renderRanking() {
   if (!state.membros.length) return;
 
+  // Buscar pontos reais do Supabase
+  await setSessionUser(state.user?.forumName);
+  const { data: usuarios } = await supabaseClient.from('usuarios').select('forum_name, pontos, ovos_resgatados');
+
   const jogadores = state.membros.map(m => {
+    const u = usuarios?.find(user => user.forum_name === m.nick);
     const souEu = m.nick === state.user.habboName;
-    const u = souEu ? state.user : null;
+    
+    const pontos = u?.pontos || 0;
+    const ovos = u?.ovos_resgatados ? Object.values(u.ovos_resgatados).reduce((a,b) => a+b, 0) : 0;
+    
     return {
       nome: m.nick,
-      pontos: u?.pontos || Math.floor(Math.random() * 300),
-      ovos: u ? Object.values(u.ovosResgatados || {}).reduce((a,b) => a+b, 0) : Math.floor(Math.random() * 10),
+      pontos: pontos,
+      ovos: ovos,
       souEu
     };
   });
 
-  jogadores.sort((a, b) => b.pontos - a.pontos);
+  // Ordenar por tipo selecionado
+  jogadores.sort((a, b) => rankingTipo === 'pontos' ? b.pontos - a.pontos : b.ovos - a.ovos);
 
   const top3 = jogadores.slice(0, 3);
   const resto = jogadores.slice(3);
@@ -591,7 +679,6 @@ function renderRanking() {
   const podium = document.getElementById('podiumTop3');
   if (podium && top3.length >= 3) {
     const medals = { 1: 'fa-crown', 2: 'fa-medal', 3: 'fa-award' };
-    const heights = { 1: '170px', 2: '140px', 3: '140px' };
     
     podium.innerHTML = [2, 1, 3].map((pos, i) => `
       <div class="podium-item pos-${pos}">
@@ -630,13 +717,25 @@ function renderRanking() {
           </div>
         </div>
         <div class="ranking-valor">
-          <div class="ranking-numero">${j.pontos}</div>
+          <div class="ranking-numero">${rankingTipo === 'pontos' ? j.pontos : j.ovos}</div>
+          <div class="ranking-label">${rankingTipo === 'pontos' ? 'pontos' : 'ovos'}</div>
         </div>
       </div>
     `).join('');
   }
 }
 
+// Função para alternar ranking (ADICIONADA)
+function alternarRanking(tipo) {
+  rankingTipo = tipo;
+  document.getElementById('btnRankPontos').classList.toggle('btn-rank-ativo', tipo === 'pontos');
+  document.getElementById('btnRankOvos').classList.toggle('btn-rank-ativo', tipo === 'ovos');
+  renderRanking();
+}
+
+// ============================================
+// ADMIN
+// ============================================
 let adminTab = 'resgates';
 
 function renderAdmin() {
@@ -934,8 +1033,7 @@ function renderCodigosList(codigos) {
               <div style="display: flex; gap: 8px; align-items: center;">
                 <code style="background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; font-weight: 600;">${c.codigo}</code>
                 <span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: ${cfg?.cor === 'gradient' ? 'linear-gradient(90deg, #ff6b6b, #feca57)' : cfg?.cor}; color: white;">${cfg?.nome}</span>
-                ${c.usado ? '<span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--danger); color: white;">USADO</span>' : '<span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--success); color: white;">DISPONÍVEL</span>'}
-              </div>
+                ${c.usado ? '<span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--danger); color: white;">USADO</span>' : '<span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--success); color: white;">DISPONÍVEL</span>'}</div>
               ${c.usado ? `<div style="font-size: 12px; color: var(--text-tertiary); margin-top: 4px;">Por: ${c.usuario?.habbo_name || '?'} em ${new Date(c.usado_em).toLocaleDateString('pt-BR')}</div>` : ''}
             </div>
             <button class="btn-icon btn-view" onclick="navigator.clipboard.writeText('${c.codigo}')"><i class="fa-solid fa-copy"></i></button>
@@ -959,6 +1057,9 @@ function filtrarCodigos() {
   document.getElementById('listaCodigosContainer').innerHTML = renderCodigosList(filtrados);
 }
 
+// ============================================
+// AÇÕES DE RESGATE
+// ============================================
 async function verificarCodigo() {
   const input = document.getElementById('codigoInput');
   const codigo = input?.value?.trim().toUpperCase();
@@ -968,7 +1069,13 @@ async function verificarCodigo() {
     return;
   }
 
-  const { data, error } = await supabaseClient.from('codigos').select('*').eq('codigo', codigo).single();
+  await setSessionUser(state.user?.forumName);
+
+  const { data, error } = await supabaseClient
+    .from('codigos')
+    .select('*')
+    .eq('codigo', codigo)
+    .single();
 
   if (error || !data) {
     showToast('Erro', 'Código não encontrado', 'error');
@@ -983,9 +1090,14 @@ async function verificarCodigo() {
   const cfg = CONFIG_OVOS[data.tipo];
   
   if (cfg.unicoGlobal) {
-    const { data: existe } = await supabaseClient.from('resgates').select('id').eq('tipo_ovo', 'coelhao').eq('status', 'aprovado').single();
+    const { data: existe } = await supabaseClient
+      .from('resgates')
+      .select('id')
+      .eq('tipo_ovo', 'coelhao')
+      .eq('status', 'aprovado')
+      .single();
     if (existe) {
-      showToast('Erro', 'Você já atingiu o limite de resgates', 'error');
+      showToast('Erro', 'O Coelhão já foi resgatado!', 'error');
       return;
     }
   }
@@ -993,7 +1105,7 @@ async function verificarCodigo() {
   if (cfg.limite !== Infinity) {
     const count = state.resgates.filter(r => r.tipo_ovo === data.tipo && r.status === 'aprovado').length;
     if (count >= cfg.limite) {
-      showToast('Erro', 'Você já atingiu o limite de resgates', 'error');
+      showToast('Erro', `Você já atingiu o limite de ${cfg.limite} ovos ${cfg.nome}`, 'error');
       return;
     }
   }
@@ -1022,6 +1134,11 @@ function abrirModalComprovacao() {
   document.getElementById('comprovacaoModal').classList.add('active');
 }
 
+// ALIAS PARA COMPATIBILIDADE COM HTML
+function confirmarComprovacao(e) {
+  return confirmarResgate(e);
+}
+
 async function confirmarResgate(e) {
   e.preventDefault();
   if (!resgatePendente) return;
@@ -1045,6 +1162,8 @@ async function confirmarResgate(e) {
     if (disp.length) premioId = disp[Math.floor(Math.random() * disp.length)].id;
   }
 
+  await setSessionUser(state.user.forumName);
+
   const { error } = await supabaseClient.from('resgates').insert([{
     usuario_id: state.user.id,
     habbo_name: state.user.habboName,
@@ -1063,7 +1182,14 @@ async function confirmarResgate(e) {
     return;
   }
 
-  await supabaseClient.from('codigos').update({ usado: true, usado_por: state.user.id, usado_em: new Date().toISOString() }).eq('id', resgatePendente.codigoId);
+  await supabaseClient
+    .from('codigos')
+    .update({ 
+      usado: true, 
+      usado_por: state.user.id, 
+      usado_em: new Date().toISOString() 
+    })
+    .eq('id', resgatePendente.codigoId);
 
   fecharModal('comprovacaoModal');
   document.getElementById('codigoInput').value = '';
@@ -1076,12 +1202,26 @@ async function aprovarResgateAdmin(id) {
   const r = state.allResgates.find(x => x.id === id);
   if (!r) return;
 
-  await supabaseClient.from('resgates').update({ status: 'aprovado', aprovado_em: new Date().toISOString() }).eq('id', id);
+  await setSessionUser(state.user.forumName);
+
+  await supabaseClient
+    .from('resgates')
+    .update({ 
+      status: 'aprovado', 
+      aprovado_em: new Date().toISOString() 
+    })
+    .eq('id', id);
   
-  await supabaseClient.from('usuarios').update({ pontos: state.user.pontos + r.pontos }).eq('habbo_name', r.habbo_name);
+  await supabaseClient
+    .from('usuarios')
+    .update({ pontos: state.user.pontos + r.pontos })
+    .eq('habbo_name', r.habbo_name);
 
   if (r.premio_id) {
-    await supabaseClient.from('premios').update({ estoque: Math.max(0, (r.premio?.estoque || 1) - 1) }).eq('id', r.premio_id);
+    await supabaseClient
+      .from('premios')
+      .update({ estoque: Math.max(0, (r.premio?.estoque || 1) - 1) })
+      .eq('id', r.premio_id);
   }
 
   showToast('Aprovado!', 'Resgate aprovado', 'success');
@@ -1093,14 +1233,40 @@ async function rejeitarResgateAdmin(id) {
 
   const r = state.allResgates.find(x => x.id === id);
   
-  await supabaseClient.from('resgates').update({ status: 'rejeitado', rejeitado_em: new Date().toISOString(), motivo_rejeicao: motivo }).eq('id', id);
-  await supabaseClient.from('codigos').update({ usado: false, usado_por: null, usado_em: null }).eq('codigo', r.codigo);
+  await setSessionUser(state.user.forumName);
+
+  await supabaseClient
+    .from('resgates')
+    .update({ 
+      status: 'rejeitado', 
+      rejeitado_em: new Date().toISOString(), 
+      motivo_rejeicao: motivo 
+    })
+    .eq('id', id);
+    
+  await supabaseClient
+    .from('codigos')
+    .update({ 
+      usado: false, 
+      usado_por: null, 
+      usado_em: null 
+    })
+    .eq('codigo', r.codigo);
 
   showToast('Rejeitado', 'Resgate rejeitado', 'error');
 }
 
 async function aprovarTroca(id) {
-  await supabaseClient.from('trocas').update({ status: 'concluida', concluida_em: new Date().toISOString() }).eq('id', id);
+  await setSessionUser(state.user.forumName);
+  
+  await supabaseClient
+    .from('trocas')
+    .update({ 
+      status: 'concluida', 
+      concluida_em: new Date().toISOString() 
+    })
+    .eq('id', id);
+    
   showToast('Aprovada!', 'Troca concluída', 'success');
 }
 
@@ -1108,8 +1274,20 @@ async function rejeitarTroca(id) {
   const t = state.allTrocas.find(x => x.id === id);
   if (!t) return;
 
-  await supabaseClient.from('trocas').update({ status: 'rejeitada', rejeitada_em: new Date().toISOString() }).eq('id', id);
-  await supabaseClient.from('usuarios').update({ pontos: state.user.pontos + t.custo_pontos }).eq('id', t.usuario_id);
+  await setSessionUser(state.user.forumName);
+
+  await supabaseClient
+    .from('trocas')
+    .update({ 
+      status: 'rejeitada', 
+      rejeitada_em: new Date().toISOString() 
+    })
+    .eq('id', id);
+    
+  await supabaseClient
+    .from('usuarios')
+    .update({ pontos: state.user.pontos + t.custo_pontos })
+    .eq('id', t.usuario_id);
   
   showToast('Rejeitada', 'Pontos devolvidos', 'error');
 }
@@ -1123,8 +1301,15 @@ async function criarPremio(e) {
   const qtd = parseInt(document.getElementById('novoPremioQtd').value);
   const desc = document.getElementById('novoPremioDesc').value;
 
+  await setSessionUser(state.user.forumName);
+
   const { error } = await supabaseClient.from('premios').insert([{
-    nome, categoria: cat, imagem_url: img, estoque: qtd, descricao: desc, ativo: true
+    nome, 
+    categoria: cat, 
+    imagem_url: img, 
+    estoque: qtd, 
+    descricao: desc, 
+    ativo: true
   }]);
 
   if (error) {
@@ -1141,7 +1326,13 @@ async function ajustarEstoquePremio(id, qtd) {
   if (!p) return;
 
   const novo = Math.max(0, p.estoque + qtd);
-  await supabaseClient.from('premios').update({ estoque: novo }).eq('id', id);
+  
+  await setSessionUser(state.user.forumName);
+  
+  await supabaseClient
+    .from('premios')
+    .update({ estoque: novo })
+    .eq('id', id);
   
   p.estoque = novo;
   renderAdminTab();
@@ -1150,7 +1341,14 @@ async function ajustarEstoquePremio(id, qtd) {
 
 async function removerPremio(id) {
   if (!confirm('Remover este prêmio?')) return;
-  await supabaseClient.from('premios').update({ ativo: false }).eq('id', id);
+  
+  await setSessionUser(state.user.forumName);
+  
+  await supabaseClient
+    .from('premios')
+    .update({ ativo: false })
+    .eq('id', id);
+    
   showToast('Removido', 'Prêmio desativado', 'success');
 }
 
@@ -1175,6 +1373,8 @@ async function gerarCodigos(e) {
     });
   }
 
+  await setSessionUser(state.user.forumName);
+
   const { error } = await supabaseClient.from('codigos').insert(novos);
   
   if (error) {
@@ -1189,6 +1389,9 @@ async function gerarCodigos(e) {
 
 async function deletarCodigo(id, codigo) {
   if (!confirm(`Deletar ${codigo}?`)) return;
+  
+  await setSessionUser(state.user.forumName);
+  
   await supabaseClient.from('codigos').delete().eq('id', id);
   showToast('Deletado', 'Código removido', 'success');
 }
@@ -1251,10 +1454,23 @@ function verDetalhes(id) {
   document.getElementById('viewModal').classList.add('active');
 }
 
+// ============================================
+// FUNÇÕES DE MODAL (CORRIGIDAS)
+// ============================================
 function fecharModal(id) {
   document.getElementById(id)?.classList.remove('active');
 }
 
+// Aliases para compatibilidade com HTML
+function fecharComprovacaoModal() { fecharModal('comprovacaoModal'); }
+function fecharResultadoModal() { fecharModal('resultadoModal'); }
+function fecharViewModal() { fecharModal('viewModal'); }
+function fecharPremioModal() { fecharModal('premioModal'); }
+function fecharCodigoModal() { fecharModal('codigoModal'); }
+
+// ============================================
+// NAVEGAÇÃO
+// ============================================
 function showSection(sec) {
   document.querySelectorAll('.section-content').forEach(el => el.classList.add('hidden'));
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -1265,6 +1481,34 @@ function showSection(sec) {
   renderCurrentSection();
 }
 
+// ============================================
+// MENU MOBILE (CORRIGIDO)
+// ============================================
+function toggleMenu() {
+  const sb = document.getElementById('sidebarNav');
+  const ov = document.getElementById('sidebarOverlay');
+  const btn = document.getElementById('mobileMenuBtn');
+  
+  sb.classList.toggle('active');
+  ov.classList.toggle('active');
+  btn.classList.toggle('active');
+  document.body.style.overflow = sb.classList.contains('active') ? 'hidden' : '';
+}
+
+function closeMenu() {
+  document.getElementById('sidebarNav').classList.remove('active');
+  document.getElementById('sidebarOverlay').classList.remove('active');
+  document.getElementById('mobileMenuBtn').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+// Aliases para compatibilidade
+function toggleMobileMenu() { toggleMenu(); }
+function closeMobileMenu() { closeMenu(); }
+
+// ============================================
+// UTILITÁRIOS
+// ============================================
 function showToast(title, msg, type = 'success') {
   const toast = document.getElementById('toast');
   toast.className = `toast ${type}`;
@@ -1300,24 +1544,9 @@ function showError(msg) {
   `;
 }
 
-function toggleMenu() {
-  const sb = document.getElementById('sidebarNav');
-  const ov = document.getElementById('sidebarOverlay');
-  const btn = document.getElementById('mobileMenuBtn');
-  
-  sb.classList.toggle('active');
-  ov.classList.toggle('active');
-  btn.classList.toggle('active');
-  document.body.style.overflow = sb.classList.contains('active') ? 'hidden' : '';
-}
-
-function closeMenu() {
-  document.getElementById('sidebarNav').classList.remove('active');
-  document.getElementById('sidebarOverlay').classList.remove('active');
-  document.getElementById('mobileMenuBtn').classList.remove('active');
-  document.body.style.overflow = '';
-}
-
+// ============================================
+// INICIALIZAÇÃO
+// ============================================
 document.addEventListener('DOMContentLoaded', () => {
   init();
   initUser();
