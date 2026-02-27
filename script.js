@@ -1,5 +1,5 @@
-   const SUPABASE_URL = 'sb_publishable_mqAR7wKs0VICPN2ac_SkQg_bP1uqd6w';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqeGxhcHlkcGFmd3Z5b2hvdmhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDc3NTIsImV4cCI6MjA4NzcyMzc1Mn0.ni9szYqdrFWz3HcwYuOZaBFgcFddDoYSyZEakSQho-c'
+const SUPABASE_URL = 'https://seu-projeto.supabase.co';
+const SUPABASE_KEY = 'sua-chave-anon';
 let supabaseClient = null;
 
 const CARGOS_IGNORADOS = ['fiscalizador', 'diretor', 'vice-presidente', 'presidente'];
@@ -133,8 +133,8 @@ async function pegarUsernameForum() {
     }
 }
 
-async function verificarAdminNoSupabase(habboName) {
-    if (!supabaseClient) return false;
+async function verificarPermissaoNoSupabase(habboName) {
+    if (!supabaseClient) return 'usuario';
     
     const { data, error } = await supabaseClient
         .from('usuarios')
@@ -143,23 +143,10 @@ async function verificarAdminNoSupabase(habboName) {
         .single();
     
     if (data) {
-        return data.grupo_permissao === 'admin' || data.grupo_permissao === 'moderador';
+        return data.grupo_permissao;
     }
     
-    if (habboName === '???JUKA') {
-        await supabaseClient
-            .from('usuarios')
-            .upsert({
-                habbo_name: habboName,
-                nome: habboName,
-                grupo_permissao: 'admin',
-                pontos: 0,
-                ovos_resgatados: { comum: 0, incomum: 0, raro: 0, epico: 0, lendario: 0, coelhao: 0 }
-            }, { onConflict: 'habbo_name' });
-        return true;
-    }
-    
-    return false;
+    return 'usuario';
 }
 
 async function inicializarUsuario() {
@@ -178,7 +165,7 @@ async function inicializarUsuario() {
             return false;
         }
         
-        const isAdmin = await verificarAdminNoSupabase(habboName);
+        const permissaoSupabase = await verificarPermissaoNoSupabase(habboName);
         
         usuarioAtual = {
             id: null,
@@ -190,7 +177,7 @@ async function inicializarUsuario() {
             ovosResgatados: { comum: 0, incomum: 0, raro: 0, epico: 0, lendario: 0, coelhao: 0 },
             premiosGanhos: [],
             historico: [],
-            grupoPermissao: isAdmin ? 'admin' : 'usuario'
+            grupoPermissao: permissaoSupabase
         };
         
         await carregarDadosUsuario();
