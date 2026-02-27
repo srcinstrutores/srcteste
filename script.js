@@ -1,14 +1,8 @@
-// ==========================================
-// CONFIGURAÇÃO DO SUPABASE
-// ==========================================
 const SUPABASE_URL = 'https://gjxlapydpafwvyohovhj.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqeGxhcHlkcGFmd3Z5b2hvdmhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDc3NTIsImV4cCI6MjA4NzcyMzc1Mn0.ni9szYqdrFWz3HcwYuOZaBFgcFddDoYSyZEakSQho-c';
 
 let supabaseClient = null;
 
-// ==========================================
-// CONFIGURAÇÃO DOS OVOS (HARDCODED)
-// ==========================================
 const configOvos = {
   comum: {
     id: 'comum',
@@ -17,8 +11,8 @@ const configOvos = {
     cor: '#8B4513',
     quantidadeTotal: 50,
     pontos: 5,
-    limitePorUsuario: Infinity, // ILIMITADO
-    limitePorOvo: Infinity, // Cada código pode ser usado infinitas vezes? NÃO - cada código é único, mas o usuário pode resgatar quantos quiser
+    limitePorUsuario: Infinity,
+    limitePorOvo: Infinity,
     descricao: 'Ovos espalhados por toda a companhia. Fáceis de encontrar em páginas ou quartos comuns.',
     chancePremio: 0
   },
@@ -29,8 +23,8 @@ const configOvos = {
     cor: '#22c55e',
     quantidadeTotal: 25,
     pontos: 10,
-    limitePorUsuario: 10, // Limite de 10 resgates por usuário (de ovos incomuns diferentes)
-    limitePorOvo: 1, // Cada código de ovo incomum pode ser usado 1 vez
+    limitePorUsuario: 10,
+    limitePorOvo: 1,
     descricao: 'Ovos escondidos em locais que requerem mais atenção. Valor médio de recompensa.',
     chancePremio: 0
   },
@@ -41,8 +35,8 @@ const configOvos = {
     cor: '#3b82f6',
     quantidadeTotal: 15,
     pontos: 30,
-    limitePorUsuario: 5, // Limite de 5 resgates por usuário
-    limitePorOvo: 1, // Cada código pode ser usado 1 vez
+    limitePorUsuario: 5,
+    limitePorOvo: 1,
     descricao: 'Ovos bem escondidos. Requer dedicação para encontrar. Boas recompensas!',
     chancePremio: 0.1
   },
@@ -53,8 +47,8 @@ const configOvos = {
     cor: '#a855f7',
     quantidadeTotal: 7,
     pontos: 50,
-    limitePorUsuario: 1, // Limite de 1 resgate por usuário
-    limitePorOvo: 1, // Cada código pode ser usado 1 vez
+    limitePorUsuario: 1,
+    limitePorOvo: 1,
     descricao: 'Ovos extremamente raros! Grande chance de ganhar prêmios épicos.',
     chancePremio: 0.4
   },
@@ -65,8 +59,8 @@ const configOvos = {
     cor: '#f59e0b',
     quantidadeTotal: 3,
     pontos: 100,
-    limitePorUsuario: 1, // Limite de 1 resgate por usuário
-    limitePorOvo: 1, // Cada código pode ser usado 1 vez
+    limitePorUsuario: 1,
+    limitePorOvo: 1,
     descricao: 'Ovos quase impossíveis de encontrar! Alta chance de prêmios lendários.',
     chancePremio: 0.6
   },
@@ -77,23 +71,21 @@ const configOvos = {
     cor: 'gradient',
     quantidadeTotal: 1,
     pontos: 500,
-    limitePorUsuario: 1, // Apenas 1 por usuário
-    limitePorOvo: 1, // Apenas 1 pessoa no total pode resgatar
-    unicoGlobal: true, // Apenas UM membro da companhia inteira pode ter
+    limitePorUsuario: 1,
+    limitePorOvo: 1,
+    unicoGlobal: true,
     descricao: 'O GRANDE PRÊMIO! Existe apenas UM na companhia inteira. Prêmio único garantido!',
     premioGarantido: true,
     chancePremio: 1
   }
 };
 
-// ==========================================
-// VARIÁVEIS GLOBAIS
-// ==========================================
 const CARGOS_IGNORADOS = ['fiscalizador', 'diretor', 'vice-presidente', 'presidente'];
 
 let membros = [];
 let usuarioAtual = null;
 let todosResgates = [];
+let todasTrocas = [];
 let resgatePendente = null;
 let tipoRankingAtual = 'pontos';
 let abaAdminAtiva = 'resgates';
@@ -105,19 +97,21 @@ let catalogoPremios = {
   lendario: []
 };
 let codigosStats = {};
+let todosCodigosLista = [];
+let subscriptions = [];
 
-// ==========================================
-// INICIALIZAÇÃO
-// ==========================================
 function initSupabase() {
   if (window.supabase) {
-    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      realtime: {
+        params: {
+          eventsPerSecond: 10
+        }
+      }
+    });
   }
 }
 
-// ==========================================
-// AUTENTICAÇÃO E USUÁRIO
-// ==========================================
 async function pegarUsernameForum() {
   try {
     const resposta = await fetch("/forum");
@@ -142,7 +136,6 @@ async function inicializarUsuario() {
   try {
     const forumName = await pegarUsernameForum();
 
-    // Buscar membros da planilha
     const response = await fetch('https://script.google.com/macros/s/AKfycbzhJdbeZfxkHgh3cQrK_YlhBCuhZyLhM_9jYkAnCPmbz-aYpv7845740KySuhjTzdIb/exec');
     const data = await response.json();
 
@@ -154,7 +147,6 @@ async function inicializarUsuario() {
       return false;
     }
 
-    // Buscar ou criar no Supabase
     let { data: userData } = await supabaseClient
       .from('usuarios')
       .select('*')
@@ -162,7 +154,6 @@ async function inicializarUsuario() {
       .single();
 
     if (!userData) {
-      // Criar novo usuário - ???JUKA vira admin automaticamente
       const { data: newUser } = await supabaseClient
         .from('usuarios')
         .insert([{
@@ -191,21 +182,17 @@ async function inicializarUsuario() {
       grupoPermissao: userData.grupo_permissao || 'usuario'
     };
 
-    // Atualizar UI com dados do usuário
     atualizarUIUsuario();
-
-    // Carregar dados
     await carregarPremios();
     await carregarResgates();
+    await carregarTrocas();
     await carregarCodigosStats();
-
-    // Renderizar conteúdo inicial
     renderizarGuiaOvos();
     renderizarPremios();
     atualizarStats();
     renderizarMeusResgates();
+    iniciarSubscriptions();
 
-    // Mostrar seção admin se for admin
     if (isAdmin()) {
       document.getElementById('adminNavSection').style.display = 'block';
     }
@@ -222,7 +209,6 @@ async function inicializarUsuario() {
 function atualizarUIUsuario() {
   if (!usuarioAtual) return;
 
-  // User badge (desktop)
   const userBadge = document.getElementById('userBadge');
   const userAvatar = document.getElementById('userAvatar');
   const userName = document.getElementById('userName');
@@ -233,7 +219,6 @@ function atualizarUIUsuario() {
   if (userName) userName.textContent = usuarioAtual.habboName;
   if (userRole) userRole.textContent = usuarioAtual.cargoOriginal || usuarioAtual.cargo;
 
-  // Mobile profile
   const mobileProfile = document.getElementById('mobileProfile');
   const mobileAvatar = document.getElementById('mobileProfileAvatar');
   const mobileName = document.getElementById('mobileUserName');
@@ -256,9 +241,6 @@ function mostrarErroLogin(mensagem) {
     `;
 }
 
-// ==========================================
-// CARREGAMENTO DE DADOS
-// ==========================================
 async function carregarPremios() {
   if (!supabaseClient) return;
 
@@ -277,6 +259,7 @@ async function carregarPremios() {
           nome: p.nome,
           descricao: p.descricao,
           icone: p.icone,
+          imagem_url: p.imagem_url,
           estoque: p.estoque,
           categoria: p.categoria
         });
@@ -288,7 +271,6 @@ async function carregarPremios() {
 async function carregarResgates() {
   if (!supabaseClient || !usuarioAtual) return;
 
-  // Histórico do usuário
   const { data } = await supabaseClient
     .from('resgates')
     .select('*, premio:premio_id(*)')
@@ -307,11 +289,10 @@ async function carregarResgates() {
       data: r.created_at,
       status: r.status,
       descricao: r.descricao,
-      comprovante_url: r.comprovante_url // GARANTIR QUE ESTÁ AQUI
+      comprovante_url: r.comprovante_url
     }));
   }
 
-  // Todos os resgates (para admin)
   if (isAdmin()) {
     const { data: todos } = await supabaseClient
       .from('resgates')
@@ -334,8 +315,48 @@ async function carregarResgates() {
         data: r.created_at,
         status: r.status,
         descricao: r.descricao,
-        comprovante_url: r.comprovante_url // GARANTIR QUE ESTÁ AQUI
+        comprovante_url: r.comprovante_url
       }));
+    }
+  }
+}
+
+async function carregarTrocas() {
+  if (!supabaseClient || !usuarioAtual) return;
+
+  const { data } = await supabaseClient
+    .from('trocas_premios')
+    .select('*')
+    .eq('habbo_name', usuarioAtual.habboName)
+    .order('created_at', { ascending: false });
+
+  if (data) {
+    todasTrocas = data.map(t => ({
+      id: t.id,
+      tipo: 'troca',
+      nomeOvo: 'Troca por Prêmio',
+      emoji: '🎁',
+      codigo: '-',
+      pontos: -t.custo_pontos,
+      premio: { nome: t.premio_nome, icone: '🎁' },
+      data: t.created_at,
+      status: t.status,
+      descricao: `Troca de ${t.custo_pontos} pontos por ${t.premio_nome}`,
+      comprovante_url: null,
+      ehTroca: true
+    }));
+
+    usuarioAtual.historico = [...usuarioAtual.historico, ...todasTrocas].sort((a, b) => new Date(b.data) - new Date(a.data));
+  }
+
+  if (isAdmin()) {
+    const { data: todas } = await supabaseClient
+      .from('trocas_premios')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (todas) {
+      todasTrocas = todas;
     }
   }
 }
@@ -359,9 +380,6 @@ async function carregarCodigosStats() {
   }
 }
 
-// ==========================================
-// CÓDIGOS - SUPABASE
-// ==========================================
 async function verificarCodigoNoSupabase(codigo) {
   const { data, error } = await supabaseClient
     .from('codigos_ovos')
@@ -379,9 +397,6 @@ async function verificarCodigoNoSupabase(codigo) {
   };
 }
 
-// ==========================================
-// UTILITÁRIOS HABBO
-// ==========================================
 function getHabboHeadUrl(username, size = 's') {
   return `https://www.habbo.com.br/habbo-imaging/avatarimage?user=${encodeURIComponent(username)}&headonly=1&size=${size}`;
 }
@@ -404,9 +419,6 @@ function getAvatarFullBodyHtml(username, tamanho = '120px') {
         onerror="this.onerror=null; this.parentElement.innerHTML='🐰';">`;
 }
 
-// ==========================================
-// NAVEGAÇÃO
-// ==========================================
 function toggleMobileMenu() {
   const sidebar = document.getElementById('sidebarNav');
   const overlay = document.getElementById('sidebarOverlay');
@@ -447,9 +459,6 @@ function showSection(section) {
   if (section === 'premios') renderizarPremios();
 }
 
-// ==========================================
-// RENDERIZAÇÃO - GUIA
-// ==========================================
 function renderizarGuiaOvos() {
   const container = document.getElementById('guiaOvosLista');
   if (!container) return;
@@ -484,9 +493,6 @@ function renderizarGuiaOvos() {
     `).join('');
 }
 
-// ==========================================
-// RENDERIZAÇÃO - PRÊMIOS (PÚBLICO)
-// ==========================================
 function renderizarPremios() {
   const categorias = [
     { id: 'comum', nome: 'Comum', cor: 'comum', icone: 'star' },
@@ -499,7 +505,6 @@ function renderizarPremios() {
   let totalPremios = 0;
   const saldoAtual = usuarioAtual?.pontos || 0;
 
-  // Atualizar saldo destacado
   const saldoEl = document.getElementById('saldoPontosLoja');
   if (saldoEl) saldoEl.textContent = saldoAtual;
 
@@ -516,15 +521,17 @@ function renderizarPremios() {
     }
 
     container.innerHTML = premios.map(p => {
-      const podeTrocar = saldoAtual >= p.estoque; // Aqui você define o custo. Estou usando estoque como custo temporariamente
-      // Ou defina um custo fixo por categoria:
       const custo = cat.id === 'comum' ? 50 : cat.id === 'incomum' ? 100 : cat.id === 'raro' ? 200 : cat.id === 'epico' ? 350 : 500;
       const podeComprar = saldoAtual >= custo && p.estoque > 0;
+
+      const iconeDisplay = p.imagem_url ? 
+        `<img src="${p.imagem_url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">` : 
+        p.icone;
 
       return `
                 <div class="premio-card ${cat.cor}" style="${!podeComprar ? 'opacity: 0.7;' : ''}">
                     <span class="premio-raridade">${cat.nome}</span>
-                    <div class="premio-icon">${p.icone}</div>
+                    <div class="premio-icon">${iconeDisplay}</div>
                     <h4 class="premio-nome">${p.nome}</h4>
                     <p class="premio-desc">${p.descricao || 'Sem descrição'}</p>
                     
@@ -553,7 +560,6 @@ function renderizarPremios() {
   if (totalBadge) totalBadge.textContent = `${totalPremios} prêmios`;
 }
 
-// Função de troca de pontos por prêmio
 async function trocarPontosPorPremio(premioId, categoria, custo) {
   if (!usuarioAtual || usuarioAtual.pontos < custo) {
     showToast('Erro', 'Você não tem pontos suficientes!', 'error');
@@ -566,11 +572,10 @@ async function trocarPontosPorPremio(premioId, categoria, custo) {
     return;
   }
 
-  if (!confirm(`Deseja trocar ${custo} pontos por: ${premio.icone} ${premio.nome}?\n\nSeu saldo atual: ${usuarioAtual.pontos} pontos\nSaldo após a troca: ${usuarioAtual.pontos - custo} pontos`)) {
+  if (!confirm(`Deseja trocar ${custo} pontos por: ${premio.nome}?\n\nSeu saldo atual: ${usuarioAtual.pontos} pontos\nSaldo após a troca: ${usuarioAtual.pontos - custo} pontos`)) {
     return;
   }
 
-  // Criar registro de troca
   const { data: trocaData, error: trocaError } = await supabaseClient
     .from('trocas_premios')
     .insert([{
@@ -580,7 +585,7 @@ async function trocarPontosPorPremio(premioId, categoria, custo) {
       premio_id: premioId,
       premio_nome: premio.nome,
       custo_pontos: custo,
-      status: 'pendente' // Aguarda entrega do prêmio no Habbo
+      status: 'pendente'
     }])
     .select()
     .single();
@@ -590,7 +595,6 @@ async function trocarPontosPorPremio(premioId, categoria, custo) {
     return;
   }
 
-  // Decrementar pontos do usuário
   const { error: pontosError } = await supabaseClient
     .from('usuarios')
     .update({ pontos: usuarioAtual.pontos - custo })
@@ -601,28 +605,20 @@ async function trocarPontosPorPremio(premioId, categoria, custo) {
     return;
   }
 
-  // Decrementar estoque do prêmio
   await supabaseClient.rpc('decrementar_estoque', { premio_id: premioId });
 
-  // Atualizar local
   usuarioAtual.pontos -= custo;
   premio.estoque--;
 
   showToast('Troca Realizada!', `Você trocou ${custo} pontos por ${premio.nome}. Aguarde a entrega no Habbo!`, 'success');
   renderizarPremios();
   atualizarStats();
-
-  // Se estiver na seção "meus", atualizar também
   renderizarMeusResgates();
 }
 
-// ==========================================
-// RENDERIZAÇÃO - MEUS RESGATES
-// ==========================================
 function renderizarMeusResgates() {
   if (!usuarioAtual) return;
 
-  // Últimos resgates (máximo 5)
   const ultimosContainer = document.getElementById('meusUltimosResgates');
   const ultimos = usuarioAtual.historico?.slice(0, 5) || [];
 
@@ -636,50 +632,57 @@ function renderizarMeusResgates() {
                 </div>
             `;
     } else {
-      ultimosContainer.innerHTML = ultimos.map(h => `
-                <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--bg-white); border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--border-light); border-left: 4px solid ${h.status === 'aprovado' ? 'var(--success)' : h.status === 'pendente' ? 'var(--warning)' : 'var(--danger)'};">
-                    <div style="font-size: 40px;">${h.emoji}</div>
+      ultimosContainer.innerHTML = ultimos.map(h => {
+        const isTroca = h.ehTroca || h.tipo === 'troca';
+        return `
+                <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--bg-white); border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--border-light); border-left: 4px solid ${h.status === 'aprovado' ? (isTroca ? 'var(--primary)' : 'var(--success)') : h.status === 'pendente' ? 'var(--warning)' : 'var(--danger)'};">
+                    <div style="font-size: 40px;">${isTroca ? '🎁' : h.emoji}</div>
                     <div style="flex: 1;">
                         <h4 style="margin-bottom: 4px;">${h.nomeOvo}</h4>
-                        <p style="font-size: 13px; color: var(--text-tertiary);">${new Date(h.data).toLocaleDateString('pt-BR')} • +${h.pontos} pts</p>
+                        <p style="font-size: 13px; color: var(--text-tertiary);">${new Date(h.data).toLocaleDateString('pt-BR')} • ${isTroca ? '' : '+'}${h.pontos} pts</p>
                         <span class="status-badge status-${h.status}" style="margin-top: 4px; display: inline-flex;">
                             <i class="fa-solid fa-${h.status === 'aprovado' ? 'check' : h.status === 'pendente' ? 'clock' : 'xmark'}"></i> 
                             ${h.status === 'aprovado' ? 'Aprovado' : h.status === 'pendente' ? 'Pendente' : 'Rejeitado'}
                         </span>
                     </div>
-                    ${h.premio ? `<div style="font-size: 24px;" title="${h.premio.nome}">${h.premio.icone}</div>` : ''}
+                    ${h.premio && !isTroca ? `<div style="font-size: 24px;" title="${h.premio.nome}">${h.premio.icone || '🎁'}</div>` : ''}
                 </div>
-            `).join('');
+            `;
+      }).join('');
     }
   }
 
-  // Histórico completo
   const historicoContainer = document.getElementById('meuHistoricoCompleto');
   if (historicoContainer) {
     historicoContainer.innerHTML = !usuarioAtual.historico || usuarioAtual.historico.length === 0 ?
       `<div class="empty-state"><i class="fa-solid fa-basket-shopping" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></i><h3>Nenhum resgate ainda</h3><p>Comece a caçar ovos!</p></div>` :
-      usuarioAtual.historico.map(h => `
-                <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--bg-white); border-radius: 12px; margin-bottom: 12px; border-left: 4px solid ${h.status === 'aprovado' ? (configOvos[h.tipo]?.cor === 'gradient' ? '#f59e0b' : configOvos[h.tipo]?.cor || '#ccc') : h.status === 'pendente' ? 'var(--warning)' : 'var(--danger)'};">
-                    <div style="font-size: 40px;">${h.emoji}</div>
+      usuarioAtual.historico.map(h => {
+        const isTroca = h.ehTroca || h.tipo === 'troca';
+        const corTipo = isTroca ? 'var(--primary)' : (configOvos[h.tipo]?.cor === 'gradient' ? '#f59e0b' : configOvos[h.tipo]?.cor || '#ccc');
+        
+        return `
+                <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--bg-white); border-radius: 12px; margin-bottom: 12px; border-left: 4px solid ${h.status === 'aprovado' ? corTipo : h.status === 'pendente' ? 'var(--warning)' : 'var(--danger)'};">
+                    <div style="font-size: 40px;">${isTroca ? '🎁' : h.emoji}</div>
                     <div style="flex: 1;">
                         <h4 style="margin-bottom: 4px;">${h.nomeOvo}</h4>
                         <p style="font-size: 13px; color: var(--text-tertiary); margin-bottom: 4px;">${new Date(h.data).toLocaleDateString('pt-BR')} às ${new Date(h.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
-                        <p style="font-size: 12px; color: var(--text-tertiary);"><i class="fa-solid fa-hashtag"></i> ${h.codigo}</p>
+                        ${!isTroca ? `<p style="font-size: 12px; color: var(--text-tertiary);"><i class="fa-solid fa-hashtag"></i> ${h.codigo}</p>` : ''}
                         <span class="status-badge status-${h.status}" style="margin-top: 8px; display: inline-flex;">
                             <i class="fa-solid fa-${h.status === 'aprovado' ? 'check' : h.status === 'pendente' ? 'clock' : 'xmark'}"></i> 
                             ${h.status === 'aprovado' ? 'Aprovado' : h.status === 'pendente' ? 'Aguardando Aprovação' : 'Rejeitado'}
                         </span>
                     </div>
                     <div style="text-align: right;">
-                        <div style="font-size: 20px; font-weight: 800; color: ${h.status === 'aprovado' ? 'var(--gold-dark)' : 'var(--text-tertiary)'};">+${h.pontos}</div>
-                        ${h.premio ? `<div style="font-size: 24px; margin-top: 4px;" title="${h.premio.nome}">${h.premio.icone}</div>` : ''}
+                        <div style="font-size: 20px; font-weight: 800; color: ${h.status === 'aprovado' ? (isTroca ? 'var(--danger)' : 'var(--gold-dark)') : 'var(--text-tertiary)'};">${isTroca ? '' : '+'}${h.pontos}</div>
+                        ${h.premio && !isTroca ? `<div style="font-size: 24px; margin-top: 4px;" title="${h.premio.nome}">${h.premio.icone || '🎁'}</div>` : ''}
                     </div>
                 </div>
-            `).join('');
+            `;
+      }).join('');
   }
 
-  // Atualizar estatísticas
-  const ovosAprovados = usuarioAtual.historico?.filter(h => h.status === 'aprovado') || [];
+  const ovosAprovados = usuarioAtual.historico?.filter(h => h.status === 'aprovado' && !h.ehTroca) || [];
+  const trocasAprovadas = usuarioAtual.historico?.filter(h => h.status === 'aprovado' && h.ehTroca) || [];
   const pontosAprovados = ovosAprovados.reduce((sum, h) => sum + h.pontos, 0);
   const premiosAprovados = ovosAprovados.filter(h => h.premio).length;
 
@@ -689,13 +692,13 @@ function renderizarMeusResgates() {
 
   if (elPontos) elPontos.textContent = pontosAprovados;
   if (elOvos) elOvos.textContent = ovosAprovados.length;
-  if (elPremios) elPremios.textContent = premiosAprovados;
+  if (elPremios) elPremios.textContent = premiosAprovados + trocasAprovadas.length;
 }
 
 function atualizarStats() {
   if (!usuarioAtual) return;
 
-  const ovosAprovados = usuarioAtual.historico?.filter(h => h.status === 'aprovado') || [];
+  const ovosAprovados = usuarioAtual.historico?.filter(h => h.status === 'aprovado' && !h.ehTroca) || [];
   const pontosAprovados = ovosAprovados.reduce((sum, h) => sum + h.pontos, 0);
   const premiosAprovados = ovosAprovados.filter(h => h.premio).length;
 
@@ -708,13 +711,9 @@ function atualizarStats() {
   if (elPremios) elPremios.textContent = premiosAprovados;
 }
 
-// ==========================================
-// RENDERIZAÇÃO - RANKING
-// ==========================================
 function renderizarRanking() {
   if (!membros.length) return;
 
-  // Preparar dados
   const jogadores = membros.map(m => {
     const souEu = usuarioAtual && (m.nick === usuarioAtual.habboName || m.nick === usuarioAtual.forumName);
     const meusDados = souEu ? usuarioAtual : null;
@@ -731,7 +730,6 @@ function renderizarRanking() {
   const ordenarPor = tipoRankingAtual === 'pontos' ? 'pontos' : 'ovos';
   jogadores.sort((a, b) => b[ordenarPor] - a[ordenarPor]);
 
-  // Pódium
   const podium = jogadores.slice(0, 3);
   const podiumContainer = document.getElementById('podiumTop3');
 
@@ -790,7 +788,6 @@ function renderizarRanking() {
         `;
   }
 
-  // Lista completa
   const rankingContainer = document.getElementById('rankingCompleto');
   if (rankingContainer) {
     rankingContainer.innerHTML = jogadores.map((j, index) => `
@@ -830,9 +827,6 @@ function alternarRanking(tipo) {
   renderizarRanking();
 }
 
-// ==========================================
-// LÓGICA DE RESGATE
-// ==========================================
 async function iniciarResgateCodigo() {
   const input = document.getElementById('codigoInput');
   const codigo = input?.value?.trim();
@@ -842,7 +836,6 @@ async function iniciarResgateCodigo() {
     return;
   }
 
-  // Verificar no Supabase
   const verificacao = await verificarCodigoNoSupabase(codigo);
 
   if (!verificacao.valido) {
@@ -853,7 +846,6 @@ async function iniciarResgateCodigo() {
 
   const config = configOvos[verificacao.tipo];
 
-  // NOVA VERIFICAÇÃO DE LIMITE
   const limiteCheck = await verificarLimiteUsuario(verificacao.tipo);
   if (!limiteCheck.permitido) {
     showToast('Limite Atingido', limiteCheck.motivo, 'error');
@@ -870,9 +862,40 @@ async function iniciarResgateCodigo() {
   abrirComprovacaoModal();
 }
 
-// ==========================================
-// LÓGICA DE RESGATE COM LINK
-// ==========================================
+async function verificarLimiteUsuario(tipo) {
+  const config = configOvos[tipo];
+
+  if (tipo === 'coelhao') {
+    const { data: coelhaoResgatado } = await supabaseClient
+      .from('resgates')
+      .select('id')
+      .eq('tipo_ovo', 'coelhao')
+      .eq('status', 'aprovado')
+      .maybeSingle();
+
+    if (coelhaoResgatado) {
+      return { permitido: false, motivo: 'Você já atingiu o limite de resgates' };
+    }
+  }
+
+  if (config.limitePorUsuario !== Infinity) {
+    const { count } = await supabaseClient
+      .from('resgates')
+      .select('*', { count: 'exact', head: true })
+      .eq('habbo_name', usuarioAtual.habboName)
+      .eq('tipo_ovo', tipo)
+      .eq('status', 'aprovado');
+
+    if (count >= config.limitePorUsuario) {
+      return {
+        permitido: false,
+        motivo: `Você já atingiu o limite de resgates`
+      };
+    }
+  }
+
+  return { permitido: true };
+}
 
 function abrirComprovacaoModal() {
   if (!resgatePendente) return;
@@ -910,7 +933,6 @@ function abrirComprovacaoModal() {
   const modal = document.getElementById('comprovacaoModal');
   if (modal) modal.classList.add('active');
 
-  // Adicionar listener para preview do link
   const linkInput = document.getElementById('comprovacaoLink');
   if (linkInput) {
     linkInput.addEventListener('input', atualizarPreviewLink);
@@ -954,7 +976,6 @@ function fecharComprovacaoModal() {
   const previewDiv = document.getElementById('linkPreview');
   if (previewDiv) previewDiv.style.display = 'none';
 
-  // Remover listener
   const linkInput = document.getElementById('comprovacaoLink');
   if (linkInput) {
     linkInput.removeEventListener('input', atualizarPreviewLink);
@@ -976,7 +997,6 @@ async function confirmarComprovacao(e) {
     return;
   }
 
-  // Validar URL
   try {
     new URL(linkComprovacao);
   } catch {
@@ -984,7 +1004,6 @@ async function confirmarComprovacao(e) {
     return;
   }
 
-  // Determinar prêmio
   let premioGanho = null;
   let premioId = null;
 
@@ -1003,7 +1022,6 @@ async function confirmarComprovacao(e) {
     }
   }
 
-  // Salvar resgate
   const { data: resgateData, error } = await supabaseClient
     .from('resgates')
     .insert([{
@@ -1015,7 +1033,7 @@ async function confirmarComprovacao(e) {
       pontos: config.pontos,
       premio_id: premioId,
       descricao: descricao,
-      comprovante_url: linkComprovacao, // LINK AQUI
+      comprovante_url: linkComprovacao,
       status: 'pendente'
     }])
     .select()
@@ -1026,13 +1044,11 @@ async function confirmarComprovacao(e) {
     return;
   }
 
-  // Marcar código como usado
   await supabaseClient
     .from('codigos_ovos')
     .update({ usado: true, usado_por: usuarioAtual.id, usado_em: new Date().toISOString() })
     .eq('id', resgatePendente.codigoId);
 
-  // Atualizar local
   usuarioAtual.historico.unshift({
     id: resgateData.id,
     tipo: resgatePendente.tipo,
@@ -1043,7 +1059,7 @@ async function confirmarComprovacao(e) {
     premio: premioGanho,
     data: resgateData.created_at,
     status: 'pendente',
-    comprovante_url: linkComprovacao // Guardar local também
+    comprovante_url: linkComprovacao
   });
 
   fecharComprovacaoModal();
@@ -1052,23 +1068,6 @@ async function confirmarComprovacao(e) {
 
   showToast('Sucesso!', 'Resgate enviado para aprovação.', 'success');
   renderizarMeusResgates();
-  if (isAdmin()) {
-    await carregarResgates();
-    renderizarAdmin();
-  }
-}
-
-function fecharComprovacaoModal() {
-  const modal = document.getElementById('comprovacaoModal');
-  if (modal) modal.classList.remove('active');
-
-  const form = document.getElementById('formComprovacao');
-  if (form) form.reset();
-
-  const preview = document.getElementById('filePreview');
-  if (preview) preview.style.display = 'none';
-
-  resgatePendente = null;
 }
 
 function fecharResultadoModal() {
@@ -1076,9 +1075,6 @@ function fecharResultadoModal() {
   if (modal) modal.classList.remove('active');
 }
 
-// ==========================================
-// ADMIN - RENDERIZAÇÃO
-// ==========================================
 function isAdmin() {
   return usuarioAtual?.grupoPermissao === 'admin';
 }
@@ -1190,7 +1186,7 @@ function renderizarAbaResgates() {
                                     <td><code style="background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px;">${r.codigo}</code></td>
                                     <td>
                                         <span style="color: var(--gold-dark); font-weight: 700;"><i class="fa-solid fa-coins"></i> ${r.pontos}</span>
-                                        ${r.premio ? `<br><span style="font-size: 16px;">${r.premio.icone} ${r.premio.nome}</span>` : ''}
+                                        ${r.premio ? `<br><span style="font-size: 16px;">${r.premio.icone || '🎁'} ${r.premio.nome}</span>` : ''}
                                     </td>
                                     <td>
                                         ${r.comprovante_url ? `
@@ -1214,43 +1210,6 @@ function renderizarAbaResgates() {
             </div>
         </div>
     `;
-}
-
-async function verificarLimiteUsuario(tipo) {
-  const config = configOvos[tipo];
-
-  // Verificar se é o coelhão e se já foi resgatado por alguém
-  if (tipo === 'coelhao') {
-    const { data: coelhaoResgatado } = await supabaseClient
-      .from('resgates')
-      .select('id')
-      .eq('tipo_ovo', 'coelhao')
-      .eq('status', 'aprovado')
-      .maybeSingle();
-
-    if (coelhaoResgatado) {
-      return { permitido: false, motivo: 'O Coelhão já foi resgatado por outro membro! É único na companhia.' };
-    }
-  }
-
-  // Verificar limite por usuário
-  if (config.limitePorUsuario !== Infinity) {
-    const { count } = await supabaseClient
-      .from('resgates')
-      .select('*', { count: 'exact', head: true })
-      .eq('habbo_name', usuarioAtual.habboName)
-      .eq('tipo_ovo', tipo)
-      .eq('status', 'aprovado'); // Só conta os aprovados
-
-    if (count >= config.limitePorUsuario) {
-      return {
-        permitido: false,
-        motivo: `Você já resgatou o limite de ${config.limitePorUsuario} ${config.nome}(s)!`
-      };
-    }
-  }
-
-  return { permitido: true };
 }
 
 function renderizarAbaPremios() {
@@ -1278,8 +1237,8 @@ function renderizarAbaPremios() {
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Ícone (Emoji) *</label>
-                                <input type="text" class="form-input" id="novoPremioIcone" required placeholder="🏆" maxlength="2" style="font-size: 20px; text-align: center;">
+                                <label class="form-label">URL da Imagem *</label>
+                                <input type="url" class="form-input" id="novoPremioImagem" required placeholder="https://i.imgur.com/imagem.png">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Estoque Inicial *</label>
@@ -1312,7 +1271,12 @@ function renderizarAbaPremios() {
       `<div style="display: grid; gap: 12px;">
                                 ${catalogoPremios[cat].map(p => `
                                     <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--bg-white); border-radius: 12px; border: 1px solid var(--border-light);">
-                                        <div style="font-size: 40px; width: 60px; text-align: center;">${p.icone}</div>
+                                        <div style="width: 60px; height: 60px; border-radius: 8px; overflow: hidden; flex-shrink: 0;">
+                                            ${p.imagem_url ? 
+          `<img src="${p.imagem_url}" style="width: 100%; height: 100%; object-fit: cover;">` : 
+          `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 32px; background: var(--bg-secondary);">${p.icone || '🎁'}</div>`
+        }
+                                        </div>
                                         <div style="flex: 1;">
                                             <h4 style="margin-bottom: 4px;">${p.nome}</h4>
                                             <p style="font-size: 13px; color: var(--text-tertiary);">${p.descricao || 'Sem descrição'}</p>
@@ -1348,7 +1312,6 @@ function renderizarAbaPremios() {
 function renderizarAbaCodigos() {
   return `
         <div style="display: grid; gap: 20px;">
-            <!-- ESTATÍSTICAS -->
             <div class="panel">
                 <div class="panel-header">
                     <div class="panel-title">
@@ -1390,7 +1353,6 @@ function renderizarAbaCodigos() {
                 </div>
             </div>
 
-            <!-- LISTA COMPLETA DE CÓDIGOS -->
             <div class="panel">
                 <div class="panel-header">
                     <div class="panel-title">
@@ -1423,10 +1385,6 @@ function renderizarAbaCodigos() {
     `;
 }
 
-// Variável para armazenar todos os códigos carregados
-let todosCodigosLista = [];
-
-// Função para carregar e exibir a lista de códigos
 async function carregarListaCodigos() {
   const container = document.getElementById('listaCodigosContainer');
   if (!container) return;
@@ -1448,7 +1406,6 @@ async function carregarListaCodigos() {
   filtrarListaCodigos();
 }
 
-// Função para filtrar e renderizar a lista
 function filtrarListaCodigos() {
   const container = document.getElementById('listaCodigosContainer');
   if (!container) return;
@@ -1522,12 +1479,10 @@ function filtrarListaCodigos() {
     `;
 }
 
-// Copiar código para clipboard
 function copiarCodigo(codigo) {
   navigator.clipboard.writeText(codigo).then(() => {
     showToast('Copiado!', `Código ${codigo} copiado para a área de transferência.`, 'success');
   }).catch(() => {
-    // Fallback para navegadores antigos
     const textarea = document.createElement('textarea');
     textarea.value = codigo;
     document.body.appendChild(textarea);
@@ -1538,7 +1493,6 @@ function copiarCodigo(codigo) {
   });
 }
 
-// Excluir código não usado
 async function excluirCodigo(id, codigo) {
   if (!confirm(`Tem certeza que deseja excluir o código ${codigo}?\nEsta ação não pode ser desfeita.`)) return;
 
@@ -1557,7 +1511,6 @@ async function excluirCodigo(id, codigo) {
   await carregarCodigosStats();
 }
 
-// Exportar códigos para CSV
 function exportarCodigos() {
   const filtroTipo = document.getElementById('filtroTipoCodigo')?.value || 'todos';
   const filtroStatus = document.getElementById('filtroStatusCodigo')?.value || 'todos';
@@ -1588,31 +1541,18 @@ function exportarCodigos() {
   showToast('Exportado!', `${codigosExportar.length} códigos exportados.`, 'success');
 }
 
-// Atualizar a função mudarAbaAdmin para carregar códigos quando necessário
-function mudarAbaAdmin(aba) {
-  abaAdminAtiva = aba;
-  renderizarAdmin();
-
-  if (aba === 'codigos') {
-    carregarListaCodigos();
-  }
-}
-
-// ==========================================
-// ADMIN - AÇÕES
-// ==========================================
 async function adicionarNovoPremio(e) {
   e.preventDefault();
 
   const nome = document.getElementById('novoPremioNome')?.value;
   const categoria = document.getElementById('novoPremioCategoria')?.value;
-  const icone = document.getElementById('novoPremioIcone')?.value;
+  const imagem_url = document.getElementById('novoPremioImagem')?.value;
   const estoque = parseInt(document.getElementById('novoPremioEstoque')?.value);
   const descricao = document.getElementById('novoPremioDescricao')?.value;
 
   const { data, error } = await supabaseClient
     .from('premios')
-    .insert([{ nome, categoria, icone, estoque, descricao, ativo: true }])
+    .insert([{ nome, categoria, icone: '🎁', imagem_url, estoque, descricao, ativo: true }])
     .select()
     .single();
 
@@ -1622,7 +1562,7 @@ async function adicionarNovoPremio(e) {
   }
 
   catalogoPremios[categoria].push({
-    id: data.id, nome, descricao, icone, estoque, categoria
+    id: data.id, nome, descricao, icone: '🎁', imagem_url, estoque, categoria
   });
 
   showToast('Sucesso!', 'Prêmio adicionado!', 'success');
@@ -1683,13 +1623,11 @@ async function aprovarResgate(id) {
     .update({ status: 'aprovado', aprovado_em: new Date().toISOString() })
     .eq('id', id);
 
-  // Atualizar pontos
   await supabaseClient.rpc('adicionar_pontos_usuario', {
     p_habbo_name: resgate.habboName,
     p_pontos: resgate.pontos
   });
 
-  // Decrementar estoque
   if (resgate.premio) {
     await supabaseClient.rpc('decrementar_estoque', { premio_id: resgate.premio.id });
     const p = findPremioById(resgate.premio.id);
@@ -1720,7 +1658,6 @@ async function rejeitarResgate(id) {
     })
     .eq('id', id);
 
-  // Liberar código
   await supabaseClient
     .from('codigos_ovos')
     .update({ usado: false, usado_por: null, usado_em: null })
@@ -1756,11 +1693,10 @@ function verDetalhesResgate(id) {
                 <div style="display: flex; justify-content: space-between;"><span>Data:</span> <strong>${new Date(resgate.data).toLocaleString('pt-BR')}</strong></div>
                 <div style="display: flex; justify-content: space-between;"><span>Status:</span> <span class="status-badge status-${resgate.status}">${resgate.status}</span></div>
                 <div style="display: flex; justify-content: space-between;"><span>Pontos:</span> <strong style="color: var(--gold-dark);">+${resgate.pontos}</strong></div>
-                ${resgate.premio ? `<div style="display: flex; justify-content: space-between;"><span>Prêmio:</span> <span>${resgate.premio.icone} ${resgate.premio.nome}</span></div>` : ''}
+                ${resgate.premio ? `<div style="display: flex; justify-content: space-between;"><span>Prêmio:</span> <span>${resgate.premio.icone || '🎁'} ${resgate.premio.nome}</span></div>` : ''}
             </div>
         </div>
 
-        <!-- LINK DE COMPROVAÇÃO DESTACADO -->
         ${resgate.comprovante_url ? `
             <div style="background: linear-gradient(135deg, var(--primary-light), var(--primary)); padding: 20px; border-radius: 12px; margin-bottom: 16px; color: white;">
                 <h4 style="margin-bottom: 12px; font-size: 14px; text-transform: uppercase; opacity: 0.9;">
@@ -1777,7 +1713,6 @@ function verDetalhesResgate(id) {
                         <i class="fa-solid fa-copy"></i> Copiar Link
                     </button>
                 </div>
-                <!-- Preview da imagem -->
                 <div style="margin-top: 12px; text-align: center;">
                     <img src="${resgate.comprovante_url}" 
                          style="max-width: 100%; max-height: 300px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.3); background: white;" 
@@ -1814,7 +1749,6 @@ function verDetalhesResgate(id) {
   document.getElementById('viewModal')?.classList.add('active');
 }
 
-// Função auxiliar para copiar texto
 function copiarTexto(texto) {
   navigator.clipboard.writeText(texto).then(() => {
     showToast('Copiado!', 'Link copiado para a área de transferência.', 'success');
@@ -1840,7 +1774,6 @@ async function gerarCodigos(e) {
   const tipo = document.getElementById('codigoTipo')?.value;
   const quantidade = parseInt(document.getElementById('codigoQuantidade')?.value);
 
-  // Gerar códigos únicos
   const novosCodigos = [];
   for (let i = 0; i < quantidade; i++) {
     const random = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -1865,9 +1798,6 @@ async function gerarCodigos(e) {
   renderizarAbaAdmin();
 }
 
-// ==========================================
-// UTILITÁRIOS
-// ==========================================
 function findPremioById(id) {
   for (const cat in catalogoPremios) {
     const p = catalogoPremios[cat].find(x => x.id === id);
@@ -1892,20 +1822,12 @@ function showToast(title, message, type = 'success') {
   setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
-// ==========================================
-// SUBSCRIPTIONS EM TEMPO REAL
-// ==========================================
-
-let subscriptions = [];
-
 function iniciarSubscriptions() {
   if (!supabaseClient || !usuarioAtual) return;
 
-  // Limpar subscriptions anteriores
   subscriptions.forEach(sub => sub.unsubscribe());
   subscriptions = [];
 
-  // 1. Subscription de resgates do usuário atual
   const resgatesSubscription = supabaseClient
     .channel('resgates-usuario')
     .on('postgres_changes', {
@@ -1914,14 +1836,12 @@ function iniciarSubscriptions() {
       table: 'resgates',
       filter: `habbo_name=eq.${usuarioAtual.habboName}`
     }, (payload) => {
-      console.log('Mudança em resgates:', payload);
       handleResgateChange(payload);
     })
     .subscribe();
 
   subscriptions.push(resgatesSubscription);
 
-  // 2. Subscription de atualizações de pontos do usuário
   const pontosSubscription = supabaseClient
     .channel('pontos-usuario')
     .on('postgres_changes', {
@@ -1930,14 +1850,26 @@ function iniciarSubscriptions() {
       table: 'usuarios',
       filter: `forum_name=eq.${usuarioAtual.forumName}`
     }, (payload) => {
-      console.log('Mudança em pontos:', payload);
       handlePontosChange(payload);
     })
     .subscribe();
 
   subscriptions.push(pontosSubscription);
 
-  // 3. Se for admin, subscription de TODOS os resgates (para o painel admin)
+  const trocasSubscription = supabaseClient
+    .channel('trocas-usuario')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'trocas_premios',
+      filter: `habbo_name=eq.${usuarioAtual.habboName}`
+    }, (payload) => {
+      handleTrocasChange(payload);
+    })
+    .subscribe();
+
+  subscriptions.push(trocasSubscription);
+
   if (isAdmin()) {
     const adminResgatesSubscription = supabaseClient
       .channel('resgates-admin')
@@ -1946,14 +1878,25 @@ function iniciarSubscriptions() {
         schema: 'public',
         table: 'resgates'
       }, (payload) => {
-        console.log('Mudança admin em resgates:', payload);
         handleAdminResgateChange(payload);
       })
       .subscribe();
 
     subscriptions.push(adminResgatesSubscription);
 
-    // 4. Subscription de prêmios (estoque)
+    const adminTrocasSubscription = supabaseClient
+      .channel('trocas-admin')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'trocas_premios'
+      }, (payload) => {
+        handleAdminTrocasChange(payload);
+      })
+      .subscribe();
+
+    subscriptions.push(adminTrocasSubscription);
+
     const premiosSubscription = supabaseClient
       .channel('premios-admin')
       .on('postgres_changes', {
@@ -1961,23 +1904,29 @@ function iniciarSubscriptions() {
         schema: 'public',
         table: 'premios'
       }, (payload) => {
-        console.log('Mudança em prêmios:', payload);
         handlePremiosChange(payload);
       })
       .subscribe();
 
     subscriptions.push(premiosSubscription);
+
+    const codigosSubscription = supabaseClient
+      .channel('codigos-admin')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'codigos_ovos'
+      }, (payload) => {
+        handleCodigosChange(payload);
+      })
+      .subscribe();
+
+    subscriptions.push(codigosSubscription);
   }
 }
 
-// Handlers das mudanças
 async function handleResgateChange(payload) {
-  const { eventType, new: newRecord, old: oldRecord } = payload;
-
-  // Atualizar histórico local
   await recarregarDadosUsuario();
-
-  // Atualizar UI atual
   atualizarUIEmTempoReal();
 }
 
@@ -1991,23 +1940,39 @@ async function handlePontosChange(payload) {
   }
 }
 
+async function handleTrocasChange(payload) {
+  await carregarTrocas();
+  atualizarUIEmTempoReal();
+}
+
 async function handleAdminResgateChange(payload) {
   const { eventType, new: newRecord } = payload;
 
-  // Recarregar todos os resgates
   await carregarResgates();
 
-  // Se estiver na aba admin, re-renderizar
   const adminSection = document.getElementById('section-admin');
   if (adminSection && !adminSection.classList.contains('hidden')) {
     renderizarAbaAdmin();
   }
 
-  // Mostrar notificação se for um novo resgate pendente
   if (eventType === 'INSERT' && newRecord.status === 'pendente') {
     showToast('Novo Resgate!', `${newRecord.habbo_name} resgatou um código!`, 'success');
-    
-    // Tocar som de notificação (opcional)
+    tocarSomNotificacao();
+  }
+}
+
+async function handleAdminTrocasChange(payload) {
+  const { eventType, new: newRecord } = payload;
+
+  await carregarTrocas();
+
+  const adminSection = document.getElementById('section-admin');
+  if (adminSection && !adminSection.classList.contains('hidden')) {
+    renderizarAbaAdmin();
+  }
+
+  if (eventType === 'INSERT' && newRecord.status === 'pendente') {
+    showToast('Nova Troca!', `${newRecord.habbo_name} solicitou um prêmio!`, 'success');
     tocarSomNotificacao();
   }
 }
@@ -2015,7 +1980,6 @@ async function handleAdminResgateChange(payload) {
 async function handlePremiosChange(payload) {
   await carregarPremios();
   
-  // Atualizar se estiver na loja ou admin
   const premiosSection = document.getElementById('section-premios');
   const adminSection = document.getElementById('section-admin');
   
@@ -2028,11 +1992,19 @@ async function handlePremiosChange(payload) {
   }
 }
 
-// Função para recarregar dados do usuário
+async function handleCodigosChange(payload) {
+  await carregarCodigosStats();
+  
+  const adminSection = document.getElementById('section-admin');
+  if (adminSection && !adminSection.classList.contains('hidden') && abaAdminAtiva === 'codigos') {
+    renderizarAbaAdmin();
+    carregarListaCodigos();
+  }
+}
+
 async function recarregarDadosUsuario() {
   if (!supabaseClient || !usuarioAtual) return;
 
-  // Recarregar histórico
   const { data: resgates } = await supabaseClient
     .from('resgates')
     .select('*, premio:premio_id(*)')
@@ -2055,7 +2027,8 @@ async function recarregarDadosUsuario() {
     }));
   }
 
-  // Recarregar pontos atualizados
+  await carregarTrocas();
+
   const { data: userData } = await supabaseClient
     .from('usuarios')
     .select('pontos, ovos_resgatados')
@@ -2068,16 +2041,13 @@ async function recarregarDadosUsuario() {
   }
 }
 
-// Atualizar UI sem recarregar a página
 function atualizarUIEmTempoReal() {
-  // Atualizar estatísticas no header
   atualizarStats();
 
-  // Atualizar seção atual
   const sections = {
     'section-guia': () => {
       atualizarStats();
-      renderizarMeusResgates(); // Atualiza últimos resgates no guia
+      renderizarMeusResgates();
     },
     'section-resgatar': () => {
       renderizarMeusResgates();
@@ -2096,7 +2066,6 @@ function atualizarUIEmTempoReal() {
     }
   };
 
-  // Encontrar qual seção está visível e atualizar ela
   for (const [id, updateFunc] of Object.entries(sections)) {
     const section = document.getElementById(id);
     if (section && !section.classList.contains('hidden')) {
@@ -2107,7 +2076,6 @@ function atualizarUIEmTempoReal() {
 }
 
 function atualizarUIPontos() {
-  // Atualizar todos os elementos que mostram pontos
   const elementosPontos = [
     'userPoints',
     'saldoPontosLoja',
@@ -2117,13 +2085,11 @@ function atualizarUIPontos() {
   elementosPontos.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
-      // Animação de contador
       animarContador(el, parseInt(el.textContent) || 0, usuarioAtual.pontos);
     }
   });
 }
 
-// Animação suave de contador
 function animarContador(elemento, de, para) {
   const duracao = 1000;
   const inicio = performance.now();
@@ -2131,8 +2097,6 @@ function animarContador(elemento, de, para) {
   function atualizar(tempoAtual) {
     const elapsed = tempoAtual - inicio;
     const progresso = Math.min(elapsed / duracao, 1);
-    
-    // Easing ease-out
     const easeOut = 1 - Math.pow(1 - progresso, 3);
     const valorAtual = Math.round(de + (para - de) * easeOut);
     
@@ -2146,9 +2110,7 @@ function animarContador(elemento, de, para) {
   requestAnimationFrame(atualizar);
 }
 
-// Som de notificação (opcional)
 function tocarSomNotificacao() {
-  // Criar um beep simples
   const audioContext = new (window.AudioContext || window.webkitAudioContext)();
   const oscillator = audioContext.createOscillator();
   const gainNode = audioContext.createGain();
@@ -2166,14 +2128,9 @@ function tocarSomNotificacao() {
   oscillator.stop(audioContext.currentTime + 0.5);
 }
 
-// ==========================================
-// MODIFICAR INICIALIZAÇÃO
-// ==========================================
-
 document.addEventListener('DOMContentLoaded', async () => {
   initSupabase();
   if (await inicializarUsuario()) {
     showSection('guia');
-    iniciarSubscriptions(); // ← INICIAR SUBSCRIPTIONS AQUI
   }
 });
