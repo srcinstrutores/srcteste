@@ -1,4 +1,7 @@
-const SUPABASE_URL = 'https://gjxlapydpafwvyohovhj.supabase.co';
+// ============================================
+// CONFIGURAÇÃO
+// ============================================
+const SUPABASE_URL = 'https://gjxlapydpafwvyohovhj.supabase.co'; // SEM ESPAÇO
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqeGxhcHlkcGFmd3Z5b2hvdmhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDc3NTIsImV4cCI6MjA4NzcyMzc1Mn0.ni9szYqdrFWz3HcwYuOZaBFgcFddDoYSyZEakSQho-c';
 
 let supabaseClient = null;
@@ -100,6 +103,9 @@ let codigosStats = {};
 let todosCodigosLista = [];
 let subscriptions = [];
 
+// ============================================
+// INICIALIZAÇÃO
+// ============================================
 function initSupabase() {
   if (window.supabase) {
     supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -136,6 +142,7 @@ async function inicializarUsuario() {
   try {
     const forumName = await pegarUsernameForum();
 
+    // URL SEM ESPAÇO
     const response = await fetch('https://script.google.com/macros/s/AKfycbzhJdbeZfxkHgh3cQrK_YlhBCuhZyLhM_9jYkAnCPmbz-aYpv7845740KySuhjTzdIb/exec');
     const data = await response.json();
 
@@ -147,25 +154,48 @@ async function inicializarUsuario() {
       return false;
     }
 
-    let { data: userData } = await supabaseClient
+    let { data: userData, error: userError } = await supabaseClient
       .from('usuarios')
       .select('*')
       .eq('forum_name', forumName)
       .single();
 
+    // Se não existe, cria novo usuário
     if (!userData) {
-      const { data: newUser } = await supabaseClient
+      const isAdmin = forumName === '???JUKA';
+      const { data: newUser, error: createError } = await supabaseClient
         .from('usuarios')
         .insert([{
           forum_name: forumName,
           habbo_name: forumName,
           pontos: 0,
-          grupo_permissao: forumName === '???JUKA' ? 'admin' : 'usuario',
+          is_admin: isAdmin, // ???JUKA vira admin automaticamente
           ovos_resgatados: { comum: 0, incomum: 0, raro: 0, epico: 0, lendario: 0, coelhao: 0 }
         }])
         .select()
         .single();
+      
+      if (createError) {
+        mostrarErroLogin('Erro ao criar usuário: ' + createError.message);
+        return false;
+      }
       userData = newUser;
+    } else {
+      // Se já existe mas é ???JUKA e não é admin, atualiza
+      if (forumName === '???JUKA' && !userData.is_admin) {
+        await supabaseClient
+          .from('usuarios')
+          .update({ is_admin: true })
+          .eq('id', userData.id);
+        userData.is_admin = true;
+      }
+    }
+
+    // VERIFICAÇÃO CRÍTICA: garantir que userData tem todos os campos
+    if (!userData || typeof userData.pontos === 'undefined') {
+      console.error('Dados do usuário incompletos:', userData);
+      mostrarErroLogin('Erro nos dados do usuário');
+      return false;
     }
 
     usuarioAtual = {
@@ -179,7 +209,7 @@ async function inicializarUsuario() {
       ovosResgatados: userData.ovos_resgatados || {},
       historico: [],
       premiosGanhos: [],
-      grupoPermissao: userData.grupo_permissao || 'usuario'
+      isAdmin: userData.is_admin || false
     };
 
     atualizarUIUsuario();
@@ -193,8 +223,10 @@ async function inicializarUsuario() {
     renderizarMeusResgates();
     iniciarSubscriptions();
 
+    // Mostrar menu admin se for admin
     if (isAdmin()) {
-      document.getElementById('adminNavSection').style.display = 'block';
+      const adminNav = document.getElementById('adminNavSection');
+      if (adminNav) adminNav.style.display = 'block';
     }
 
     return true;
@@ -209,38 +241,48 @@ async function inicializarUsuario() {
 function atualizarUIUsuario() {
   if (!usuarioAtual) return;
 
+  const avatar = getAvatarHeadHtml(usuarioAtual.habboName, '48px');
+
+  // Função auxiliar segura
+  const setHTML = (id, html) => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+  };
+
+  const setText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  };
+
+  setHTML('userAvatar', avatar);
+  setText('userName', usuarioAtual.habboName);
+  setText('userRole', usuarioAtual.cargoOriginal || usuarioAtual.cargo);
+
+  setHTML('mobileProfileAvatar', getAvatarHeadHtml(usuarioAtual.habboName, '56px'));
+  setText('mobileUserName', usuarioAtual.habboName);
+  setText('mobileUserRole', usuarioAtual.cargoOriginal || usuarioAtual.cargo);
+
   const userBadge = document.getElementById('userBadge');
-  const userAvatar = document.getElementById('userAvatar');
-  const userName = document.getElementById('userName');
-  const userRole = document.getElementById('userRole');
+  const mobileProfile = document.getElementById('mobileProfile');
 
   if (userBadge) userBadge.style.display = 'flex';
-  if (userAvatar) userAvatar.innerHTML = getAvatarHeadHtml(usuarioAtual.habboName, '48px');
-  if (userName) userName.textContent = usuarioAtual.habboName;
-  if (userRole) userRole.textContent = usuarioAtual.cargoOriginal || usuarioAtual.cargo;
-
-  const mobileProfile = document.getElementById('mobileProfile');
-  const mobileAvatar = document.getElementById('mobileProfileAvatar');
-  const mobileName = document.getElementById('mobileUserName');
-  const mobileRole = document.getElementById('mobileUserRole');
-
   if (mobileProfile) mobileProfile.style.display = 'block';
-  if (mobileAvatar) mobileAvatar.innerHTML = getAvatarHeadHtml(usuarioAtual.habboName, '56px');
-  if (mobileName) mobileName.textContent = usuarioAtual.habboName;
-  if (mobileRole) mobileRole.textContent = usuarioAtual.cargoOriginal || usuarioAtual.cargo;
 }
 
 function mostrarErroLogin(mensagem) {
   document.body.innerHTML = `
-        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; font-family: 'Inter', sans-serif; text-align: center; padding: 20px;">
-            <div style="font-size: 64px; margin-bottom: 20px;">🚫</div>
-            <h1 style="font-size: 24px; margin-bottom: 16px; font-weight: 700;">Acesso Negado</h1>
-            <p style="font-size: 16px; opacity: 0.9; max-width: 400px; line-height: 1.6;">${mensagem}</p>
-            <button onclick="window.location.reload()" style="margin-top: 24px; padding: 12px 24px; background: white; color: #1e40af; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">Tentar Novamente</button>
-        </div>
-    `;
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; font-family: 'Inter', sans-serif; text-align: center; padding: 20px;">
+      <div style="font-size: 64px; margin-bottom: 20px;">🚫</div>
+      <h1 style="font-size: 24px; margin-bottom: 16px; font-weight: 700;">Acesso Negado</h1>
+      <p style="font-size: 16px; opacity: 0.9; max-width: 400px; line-height: 1.6;">${mensagem}</p>
+      <button onclick="window.location.reload()" style="margin-top: 24px; padding: 12px 24px; background: white; color: #1e40af; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">Tentar Novamente</button>
+    </div>
+  `;
 }
 
+// ============================================
+// CARREGAMENTO DE DADOS
+// ============================================
 async function carregarPremios() {
   if (!supabaseClient) return;
 
@@ -346,7 +388,8 @@ async function carregarTrocas() {
       ehTroca: true
     }));
 
-    usuarioAtual.historico = [...usuarioAtual.historico, ...todasTrocas].sort((a, b) => new Date(b.data) - new Date(a.data));
+    usuarioAtual.historico = [...usuarioAtual.historico, ...todasTrocas]
+      .sort((a, b) => new Date(b.data) - new Date(a.data));
   }
 
   if (isAdmin()) {
@@ -397,11 +440,16 @@ async function verificarCodigoNoSupabase(codigo) {
   };
 }
 
+// ============================================
+// AVATARES (URLs CORRIGIDAS)
+// ============================================
 function getHabboHeadUrl(username, size = 's') {
+  // SEM ESPAÇO após "user="
   return `https://www.habbo.com.br/habbo-imaging/avatarimage?user=${encodeURIComponent(username)}&headonly=1&size=${size}`;
 }
 
 function getHabboFullBodyUrl(username, size = 'l') {
+  // SEM ESPAÇO após "user="
   return `https://www.habbo.com.br/habbo-imaging/avatarimage?user=${encodeURIComponent(username)}&size=${size}`;
 }
 
@@ -419,11 +467,16 @@ function getAvatarFullBodyHtml(username, tamanho = '120px') {
         onerror="this.onerror=null; this.parentElement.innerHTML='🐰';">`;
 }
 
+// ============================================
+// NAVEGAÇÃO E UI
+// ============================================
 function toggleMobileMenu() {
   const sidebar = document.getElementById('sidebarNav');
   const overlay = document.getElementById('sidebarOverlay');
   const btn = document.getElementById('mobileMenuBtn');
   const body = document.body;
+
+  if (!sidebar || !overlay || !btn) return;
 
   sidebar.classList.toggle('active');
   overlay.classList.toggle('active');
@@ -437,9 +490,9 @@ function closeMobileMenu() {
   const btn = document.getElementById('mobileMenuBtn');
   const body = document.body;
 
-  sidebar.classList.remove('active');
-  overlay.classList.remove('active');
-  btn.classList.remove('active');
+  if (sidebar) sidebar.classList.remove('active');
+  if (overlay) overlay.classList.remove('active');
+  if (btn) btn.classList.remove('active');
   body.style.overflow = '';
 }
 
@@ -459,6 +512,9 @@ function showSection(section) {
   if (section === 'premios') renderizarPremios();
 }
 
+// ============================================
+// RENDERIZAÇÃO
+// ============================================
 function renderizarGuiaOvos() {
   const container = document.getElementById('guiaOvosLista');
   if (!container) return;
@@ -466,31 +522,29 @@ function renderizarGuiaOvos() {
   const ovos = Object.values(configOvos);
 
   container.innerHTML = ovos.map(ovo => `
-        <div class="guia-item ${ovo.id}">
-            <div class="guia-header">
-                <div class="guia-emoji">${ovo.emoji}</div>
-                <div class="guia-titulo">
-                    <div class="guia-nome" style="color: ${ovo.cor === 'gradient' ? '#f59e0b' : ovo.cor};">${ovo.nome}</div>
-                    <div class="guia-quantidade">${ovo.quantidadeTotal} disponíveis</div>
-                </div>
-            </div>
-            
-            <div class="guia-recompensa">
-                <span class="guia-pontos"><i class="fa-solid fa-coins"></i> ${ovo.pontos} pontos</span>
-                ${ovo.chancePremio > 0 ? `<span class="guia-bonus"><i class="fa-solid fa-gift"></i> Chance de prêmio: ${Math.round(ovo.chancePremio * 100)}%</span>` : ''}
-                ${ovo.premioGarantido ? `<span class="guia-bonus"><i class="fa-solid fa-trophy"></i> Prêmio Lendário Garantido!</span>` : ''}
-            </div>
-            
-            <p class="guia-desc">${ovo.descricao}</p>
-            
-            <div class="guia-limites">
-                <i class="fa-solid fa-user-check"></i>
-                ${ovo.limitePorUsuario === Infinity
-      ? 'Sem limite de resgates'
-      : `Limite: ${ovo.limitePorUsuario} resgate${ovo.limitePorUsuario > 1 ? 's' : ''} por usuário`}
-            </div>
+    <div class="guia-item ${ovo.id}">
+      <div class="guia-header">
+        <div class="guia-emoji">${ovo.emoji}</div>
+        <div class="guia-titulo">
+          <div class="guia-nome" style="color: ${ovo.cor === 'gradient' ? '#f59e0b' : ovo.cor};">${ovo.nome}</div>
+          <div class="guia-quantidade">${ovo.quantidadeTotal} disponíveis</div>
         </div>
-    `).join('');
+      </div>
+      
+      <div class="guia-recompensa">
+        <span class="guia-pontos"><i class="fa-solid fa-coins"></i> ${ovo.pontos} pontos</span>
+        ${ovo.chancePremio > 0 ? `<span class="guia-bonus"><i class="fa-solid fa-gift"></i> Chance de prêmio: ${Math.round(ovo.chancePremio * 100)}%</span>` : ''}
+        ${ovo.premioGarantido ? `<span class="guia-bonus"><i class="fa-solid fa-trophy"></i> Prêmio Lendário Garantido!</span>` : ''}
+      </div>
+      
+      <p class="guia-desc">${ovo.descricao}</p>
+      
+      <div class="guia-limites">
+        <i class="fa-solid fa-user-check"></i>
+        ${ovo.limitePorUsuario === Infinity ? 'Sem limite de resgates' : `Limite: ${ovo.limitePorUsuario} resgate${ovo.limitePorUsuario > 1 ? 's' : ''} por usuário`}
+      </div>
+    </div>
+  `).join('');
 }
 
 function renderizarPremios() {
@@ -520,39 +574,39 @@ function renderizarPremios() {
       return;
     }
 
-    container.innerHTML = premios.map(p => {
-      const custo = cat.id === 'comum' ? 50 : cat.id === 'incomum' ? 100 : cat.id === 'raro' ? 200 : cat.id === 'epico' ? 350 : 500;
-      const podeComprar = saldoAtual >= custo && p.estoque > 0;
+    const custo = cat.id === 'comum' ? 50 : cat.id === 'incomum' ? 100 : cat.id === 'raro' ? 200 : cat.id === 'epico' ? 350 : 500;
 
+    container.innerHTML = premios.map(p => {
+      const podeComprar = saldoAtual >= custo && p.estoque > 0;
       const iconeDisplay = p.imagem_url ? 
         `<img src="${p.imagem_url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">` : 
-        p.icone;
+        (p.icone || '🎁');
 
       return `
-                <div class="premio-card ${cat.cor}" style="${!podeComprar ? 'opacity: 0.7;' : ''}">
-                    <span class="premio-raridade">${cat.nome}</span>
-                    <div class="premio-icon">${iconeDisplay}</div>
-                    <h4 class="premio-nome">${p.nome}</h4>
-                    <p class="premio-desc">${p.descricao || 'Sem descrição'}</p>
-                    
-                    <div style="background: var(--bg-secondary); padding: 12px; border-radius: 8px; margin: 12px 0; text-align: center;">
-                        <div style="font-size: 20px; font-weight: 800; color: var(--gold-dark);">
-                            <i class="fa-solid fa-coins"></i> ${custo} pontos
-                        </div>
-                        <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 4px;">
-                            Estoque: ${p.estoque} unidades
-                        </div>
-                    </div>
+        <div class="premio-card ${cat.cor}" style="${!podeComprar ? 'opacity: 0.7;' : ''}">
+          <span class="premio-raridade">${cat.nome}</span>
+          <div class="premio-icon">${iconeDisplay}</div>
+          <h4 class="premio-nome">${p.nome}</h4>
+          <p class="premio-desc">${p.descricao || 'Sem descrição'}</p>
+          
+          <div style="background: var(--bg-secondary); padding: 12px; border-radius: 8px; margin: 12px 0; text-align: center;">
+            <div style="font-size: 20px; font-weight: 800; color: var(--gold-dark);">
+              <i class="fa-solid fa-coins"></i> ${custo} pontos
+            </div>
+            <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 4px;">
+              Estoque: ${p.estoque} unidades
+            </div>
+          </div>
 
-                    <button class="btn ${podeComprar ? 'btn-primary' : 'btn-secondary'}" 
-                            style="width: 100%;" 
-                            onclick="trocarPontosPorPremio('${p.id}', '${cat.id}', ${custo})"
-                            ${!podeComprar ? 'disabled' : ''}>
-                        ${podeComprar ? '<i class="fa-solid fa-exchange-alt"></i> Trocar Agora' :
-          saldoAtual < custo ? '<i class="fa-solid fa-lock"></i> Pontos Insuficientes' : '<i class="fa-solid fa-lock"></i> Sem Estoque'}
-                    </button>
-                </div>
-            `;
+          <button class="btn ${podeComprar ? 'btn-primary' : 'btn-secondary'}" 
+                  style="width: 100%;" 
+                  onclick="trocarPontosPorPremio('${p.id}', '${cat.id}', ${custo})"
+                  ${!podeComprar ? 'disabled' : ''}>
+            ${podeComprar ? '<i class="fa-solid fa-exchange-alt"></i> Trocar Agora' :
+              saldoAtual < custo ? '<i class="fa-solid fa-lock"></i> Pontos Insuficientes' : '<i class="fa-solid fa-lock"></i> Sem Estoque'}
+          </button>
+        </div>
+      `;
     }).join('');
   });
 
@@ -625,29 +679,29 @@ function renderizarMeusResgates() {
   if (ultimosContainer) {
     if (ultimos.length === 0) {
       ultimosContainer.innerHTML = `
-                <div class="empty-state">
-                    <div style="font-size: 64px; margin-bottom: 16px;">🧺</div>
-                    <h3>Sua cesta está vazia</h3>
-                    <p>Encontre e resgate ovos para preenchê-la!</p>
-                </div>
-            `;
+        <div class="empty-state">
+          <div style="font-size: 64px; margin-bottom: 16px;">🧺</div>
+          <h3>Sua cesta está vazia</h3>
+          <p>Encontre e resgate ovos para preenchê-la!</p>
+        </div>
+      `;
     } else {
       ultimosContainer.innerHTML = ultimos.map(h => {
         const isTroca = h.ehTroca || h.tipo === 'troca';
         return `
-                <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--bg-white); border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--border-light); border-left: 4px solid ${h.status === 'aprovado' ? (isTroca ? 'var(--primary)' : 'var(--success)') : h.status === 'pendente' ? 'var(--warning)' : 'var(--danger)'};">
-                    <div style="font-size: 40px;">${isTroca ? '🎁' : h.emoji}</div>
-                    <div style="flex: 1;">
-                        <h4 style="margin-bottom: 4px;">${h.nomeOvo}</h4>
-                        <p style="font-size: 13px; color: var(--text-tertiary);">${new Date(h.data).toLocaleDateString('pt-BR')} • ${isTroca ? '' : '+'}${h.pontos} pts</p>
-                        <span class="status-badge status-${h.status}" style="margin-top: 4px; display: inline-flex;">
-                            <i class="fa-solid fa-${h.status === 'aprovado' ? 'check' : h.status === 'pendente' ? 'clock' : 'xmark'}"></i> 
-                            ${h.status === 'aprovado' ? 'Aprovado' : h.status === 'pendente' ? 'Pendente' : 'Rejeitado'}
-                        </span>
-                    </div>
-                    ${h.premio && !isTroca ? `<div style="font-size: 24px;" title="${h.premio.nome}">${h.premio.icone || '🎁'}</div>` : ''}
-                </div>
-            `;
+          <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--bg-white); border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--border-light); border-left: 4px solid ${h.status === 'aprovado' ? (isTroca ? 'var(--primary)' : 'var(--success)') : h.status === 'pendente' ? 'var(--warning)' : 'var(--danger)'};">
+            <div style="font-size: 40px;">${isTroca ? '🎁' : h.emoji}</div>
+            <div style="flex: 1;">
+              <h4 style="margin-bottom: 4px;">${h.nomeOvo}</h4>
+              <p style="font-size: 13px; color: var(--text-tertiary);">${new Date(h.data).toLocaleDateString('pt-BR')} • ${isTroca ? '' : '+'}${h.pontos} pts</p>
+              <span class="status-badge status-${h.status}" style="margin-top: 4px; display: inline-flex;">
+                <i class="fa-solid fa-${h.status === 'aprovado' ? 'check' : h.status === 'pendente' ? 'clock' : 'xmark'}"></i> 
+                ${h.status === 'aprovado' ? 'Aprovado' : h.status === 'pendente' ? 'Pendente' : 'Rejeitado'}
+              </span>
+            </div>
+            ${h.premio && !isTroca ? `<div style="font-size: 24px;" title="${h.premio.nome}">${h.premio.icone || '🎁'}</div>` : ''}
+          </div>
+        `;
       }).join('');
     }
   }
@@ -661,23 +715,23 @@ function renderizarMeusResgates() {
         const corTipo = isTroca ? 'var(--primary)' : (configOvos[h.tipo]?.cor === 'gradient' ? '#f59e0b' : configOvos[h.tipo]?.cor || '#ccc');
         
         return `
-                <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--bg-white); border-radius: 12px; margin-bottom: 12px; border-left: 4px solid ${h.status === 'aprovado' ? corTipo : h.status === 'pendente' ? 'var(--warning)' : 'var(--danger)'};">
-                    <div style="font-size: 40px;">${isTroca ? '🎁' : h.emoji}</div>
-                    <div style="flex: 1;">
-                        <h4 style="margin-bottom: 4px;">${h.nomeOvo}</h4>
-                        <p style="font-size: 13px; color: var(--text-tertiary); margin-bottom: 4px;">${new Date(h.data).toLocaleDateString('pt-BR')} às ${new Date(h.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
-                        ${!isTroca ? `<p style="font-size: 12px; color: var(--text-tertiary);"><i class="fa-solid fa-hashtag"></i> ${h.codigo}</p>` : ''}
-                        <span class="status-badge status-${h.status}" style="margin-top: 8px; display: inline-flex;">
-                            <i class="fa-solid fa-${h.status === 'aprovado' ? 'check' : h.status === 'pendente' ? 'clock' : 'xmark'}"></i> 
-                            ${h.status === 'aprovado' ? 'Aprovado' : h.status === 'pendente' ? 'Aguardando Aprovação' : 'Rejeitado'}
-                        </span>
-                    </div>
-                    <div style="text-align: right;">
-                        <div style="font-size: 20px; font-weight: 800; color: ${h.status === 'aprovado' ? (isTroca ? 'var(--danger)' : 'var(--gold-dark)') : 'var(--text-tertiary)'};">${isTroca ? '' : '+'}${h.pontos}</div>
-                        ${h.premio && !isTroca ? `<div style="font-size: 24px; margin-top: 4px;" title="${h.premio.nome}">${h.premio.icone || '🎁'}</div>` : ''}
-                    </div>
-                </div>
-            `;
+          <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--bg-white); border-radius: 12px; margin-bottom: 12px; border-left: 4px solid ${h.status === 'aprovado' ? corTipo : h.status === 'pendente' ? 'var(--warning)' : 'var(--danger)'};">
+            <div style="font-size: 40px;">${isTroca ? '🎁' : h.emoji}</div>
+            <div style="flex: 1;">
+              <h4 style="margin-bottom: 4px;">${h.nomeOvo}</h4>
+              <p style="font-size: 13px; color: var(--text-tertiary); margin-bottom: 4px;">${new Date(h.data).toLocaleDateString('pt-BR')} às ${new Date(h.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+              ${!isTroca ? `<p style="font-size: 12px; color: var(--text-tertiary);"><i class="fa-solid fa-hashtag"></i> ${h.codigo}</p>` : ''}
+              <span class="status-badge status-${h.status}" style="margin-top: 8px; display: inline-flex;">
+                <i class="fa-solid fa-${h.status === 'aprovado' ? 'check' : h.status === 'pendente' ? 'clock' : 'xmark'}"></i> 
+                ${h.status === 'aprovado' ? 'Aprovado' : h.status === 'pendente' ? 'Aguardando Aprovação' : 'Rejeitado'}
+              </span>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 20px; font-weight: 800; color: ${h.status === 'aprovado' ? (isTroca ? 'var(--danger)' : 'var(--gold-dark)') : 'var(--text-tertiary)'};">${isTroca ? '' : '+'}${h.pontos}</div>
+              ${h.premio && !isTroca ? `<div style="font-size: 24px; margin-top: 4px;" title="${h.premio.nome}">${h.premio.icone || '🎁'}</div>` : ''}
+            </div>
+          </div>
+        `;
       }).join('');
   }
 
@@ -711,6 +765,9 @@ function atualizarStats() {
   if (elPremios) elPremios.textContent = premiosAprovados;
 }
 
+// ============================================
+// RANKING
+// ============================================
 function renderizarRanking() {
   if (!membros.length) return;
 
@@ -737,81 +794,81 @@ function renderizarRanking() {
     const iconesPodium = { 1: 'fa-crown', 2: 'fa-medal', 3: 'fa-award' };
 
     podiumContainer.innerHTML = `
-            <div class="podium-item pos-2">
-                <div class="podium-avatar-wrapper">
-                    <div class="podium-badge"><i class="fa-solid ${iconesPodium[2]}"></i></div>
-                    <div class="podium-avatar-container">${getAvatarFullBodyHtml(podium[1]?.habboName, '140px')}</div>
-                </div>
-                <div class="podium-base">
-                    <div class="podium-info">
-                        <div class="podium-nome">${podium[1]?.nome || '-'}</div>
-                        <div class="podium-stats">
-                            <div class="podium-pontos"><i class="fa-solid fa-coins"></i> ${podium[1]?.[ordenarPor] || 0}</div>
-                            <div class="podium-label">${ordenarPor === 'pontos' ? 'pontos' : 'ovos'}</div>
-                        </div>
-                    </div>
-                    <div class="podium-rank-number">2</div>
-                </div>
+      <div class="podium-item pos-2">
+        <div class="podium-avatar-wrapper">
+          <div class="podium-badge"><i class="fa-solid ${iconesPodium[2]}"></i></div>
+          <div class="podium-avatar-container">${getAvatarFullBodyHtml(podium[1]?.habboName, '140px')}</div>
+        </div>
+        <div class="podium-base">
+          <div class="podium-info">
+            <div class="podium-nome">${podium[1]?.nome || '-'}</div>
+            <div class="podium-stats">
+              <div class="podium-pontos"><i class="fa-solid fa-coins"></i> ${podium[1]?.[ordenarPor] || 0}</div>
+              <div class="podium-label">${ordenarPor === 'pontos' ? 'pontos' : 'ovos'}</div>
             </div>
-            <div class="podium-item pos-1">
-                <div class="podium-avatar-wrapper">
-                    <div class="podium-badge"><i class="fa-solid ${iconesPodium[1]}"></i></div>
-                    <div class="podium-avatar-container">${getAvatarFullBodyHtml(podium[0]?.habboName, '170px')}</div>
-                </div>
-                <div class="podium-base">
-                    <div class="podium-info">
-                        <div class="podium-nome">${podium[0]?.nome || '-'}</div>
-                        <div class="podium-stats">
-                            <div class="podium-pontos"><i class="fa-solid fa-coins"></i> ${podium[0]?.[ordenarPor] || 0}</div>
-                            <div class="podium-label">${ordenarPor === 'pontos' ? 'pontos' : 'ovos'}</div>
-                        </div>
-                    </div>
-                    <div class="podium-rank-number">1</div>
-                </div>
+          </div>
+          <div class="podium-rank-number">2</div>
+        </div>
+      </div>
+      <div class="podium-item pos-1">
+        <div class="podium-avatar-wrapper">
+          <div class="podium-badge"><i class="fa-solid ${iconesPodium[1]}"></i></div>
+          <div class="podium-avatar-container">${getAvatarFullBodyHtml(podium[0]?.habboName, '170px')}</div>
+        </div>
+        <div class="podium-base">
+          <div class="podium-info">
+            <div class="podium-nome">${podium[0]?.nome || '-'}</div>
+            <div class="podium-stats">
+              <div class="podium-pontos"><i class="fa-solid fa-coins"></i> ${podium[0]?.[ordenarPor] || 0}</div>
+              <div class="podium-label">${ordenarPor === 'pontos' ? 'pontos' : 'ovos'}</div>
             </div>
-            <div class="podium-item pos-3">
-                <div class="podium-avatar-wrapper">
-                    <div class="podium-badge"><i class="fa-solid ${iconesPodium[3]}"></i></div>
-                    <div class="podium-avatar-container">${getAvatarFullBodyHtml(podium[2]?.habboName, '140px')}</div>
-                </div>
-                <div class="podium-base">
-                    <div class="podium-info">
-                        <div class="podium-nome">${podium[2]?.nome || '-'}</div>
-                        <div class="podium-stats">
-                            <div class="podium-pontos"><i class="fa-solid fa-coins"></i> ${podium[2]?.[ordenarPor] || 0}</div>
-                            <div class="podium-label">${ordenarPor === 'pontos' ? 'pontos' : 'ovos'}</div>
-                        </div>
-                    </div>
-                    <div class="podium-rank-number">3</div>
-                </div>
+          </div>
+          <div class="podium-rank-number">1</div>
+        </div>
+      </div>
+      <div class="podium-item pos-3">
+        <div class="podium-avatar-wrapper">
+          <div class="podium-badge"><i class="fa-solid ${iconesPodium[3]}"></i></div>
+          <div class="podium-avatar-container">${getAvatarFullBodyHtml(podium[2]?.habboName, '140px')}</div>
+        </div>
+        <div class="podium-base">
+          <div class="podium-info">
+            <div class="podium-nome">${podium[2]?.nome || '-'}</div>
+            <div class="podium-stats">
+              <div class="podium-pontos"><i class="fa-solid fa-coins"></i> ${podium[2]?.[ordenarPor] || 0}</div>
+              <div class="podium-label">${ordenarPor === 'pontos' ? 'pontos' : 'ovos'}</div>
             </div>
-        `;
+          </div>
+          <div class="podium-rank-number">3</div>
+        </div>
+      </div>
+    `;
   }
 
   const rankingContainer = document.getElementById('rankingCompleto');
   if (rankingContainer) {
     rankingContainer.innerHTML = jogadores.map((j, index) => `
-            <div class="ranking-item-novo ${j.souEu ? 'destaque' : ''}" data-pos="${index + 1}">
-                <div class="ranking-pos ${index < 3 ? 'top' : 'normal'}">${index + 1}</div>
-                <div class="ranking-avatar-novo" style="overflow: hidden; padding: 0; border-radius: 50%;">
-                    ${getAvatarHeadHtml(j.habboName, '48px')}
-                </div>
-                <div class="ranking-info-novo">
-                    <div class="ranking-nome-novo">
-                        ${j.nome}
-                        ${j.souEu ? '<span class="ranking-badge">VOCÊ</span>' : ''}
-                    </div>
-                    <div class="ranking-stats">
-                        <span class="ranking-stat pontos"><i class="fa-solid fa-coins"></i> ${j.pontos} pts</span>
-                        <span class="ranking-stat ovos"><i class="fa-solid fa-egg"></i> ${j.ovos} ovos</span>
-                    </div>
-                </div>
-                <div class="ranking-valor">
-                    <div class="ranking-numero">${j[ordenarPor]}</div>
-                    <div class="ranking-label">${ordenarPor === 'pontos' ? 'pontos' : 'ovos'}</div>
-                </div>
-            </div>
-        `).join('');
+      <div class="ranking-item-novo ${j.souEu ? 'destaque' : ''}" data-pos="${index + 1}">
+        <div class="ranking-pos ${index < 3 ? 'top' : 'normal'}">${index + 1}</div>
+        <div class="ranking-avatar-novo" style="overflow: hidden; padding: 0; border-radius: 50%;">
+          ${getAvatarHeadHtml(j.habboName, '48px')}
+        </div>
+        <div class="ranking-info-novo">
+          <div class="ranking-nome-novo">
+            ${j.nome}
+            ${j.souEu ? '<span class="ranking-badge">VOCÊ</span>' : ''}
+          </div>
+          <div class="ranking-stats">
+            <span class="ranking-stat pontos"><i class="fa-solid fa-coins"></i> ${j.pontos} pts</span>
+            <span class="ranking-stat ovos"><i class="fa-solid fa-egg"></i> ${j.ovos} ovos</span>
+          </div>
+        </div>
+        <div class="ranking-valor">
+          <div class="ranking-numero">${j[ordenarPor]}</div>
+          <div class="ranking-label">${ordenarPor === 'pontos' ? 'pontos' : 'ovos'}</div>
+        </div>
+      </div>
+    `).join('');
   }
 }
 
@@ -827,6 +884,9 @@ function alternarRanking(tipo) {
   renderizarRanking();
 }
 
+// ============================================
+// RESGATE DE CÓDIGOS
+// ============================================
 async function iniciarResgateCodigo() {
   const input = document.getElementById('codigoInput');
   const codigo = input?.value?.trim();
@@ -905,65 +965,33 @@ function abrirComprovacaoModal() {
   const infoDiv = document.getElementById('comprovacaoInfo');
   if (infoDiv) {
     infoDiv.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
-                <div style="font-size: 48px;">${config.emoji}</div>
-                <div>
-                    <h4 style="color: ${config.cor === 'gradient' ? '#f59e0b' : config.cor}; margin-bottom: 4px;">${config.nome}</h4>
-                    <p style="font-size: 14px; color: var(--text-tertiary);">Código: <code>${resgatePendente.codigo}</code></p>
-                </div>
-            </div>
-            <div style="background: var(--bg-white); padding: 12px; border-radius: 8px; text-align: center;">
-                <p style="font-size: 18px; font-weight: 700; color: var(--gold-dark);">
-                    <i class="fa-solid fa-coins"></i> ${config.pontos} pontos
-                </p>
-                ${config.chancePremio > 0 ? `
-                    <p style="color: var(--warning); font-size: 14px; margin-top: 4px;">
-                        <i class="fa-solid fa-dice"></i> Chance de prêmio: ${Math.round(config.chancePremio * 100)}%
-                    </p>
-                ` : ''}
-                ${config.premioGarantido ? `
-                    <p style="color: var(--success); font-size: 14px; margin-top: 4px;">
-                        <i class="fa-solid fa-trophy"></i> Prêmio Lendário Garantido!
-                    </p>
-                ` : ''}
-            </div>
-        `;
+      <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
+        <div style="font-size: 48px;">${config.emoji}</div>
+        <div>
+          <h4 style="color: ${config.cor === 'gradient' ? '#f59e0b' : config.cor}; margin-bottom: 4px;">${config.nome}</h4>
+          <p style="font-size: 14px; color: var(--text-tertiary);">Código: <code>${resgatePendente.codigo}</code></p>
+        </div>
+      </div>
+      <div style="background: var(--bg-white); padding: 12px; border-radius: 8px; text-align: center;">
+        <p style="font-size: 18px; font-weight: 700; color: var(--gold-dark);">
+          <i class="fa-solid fa-coins"></i> ${config.pontos} pontos
+        </p>
+        ${config.chancePremio > 0 ? `
+          <p style="color: var(--warning); font-size: 14px; margin-top: 4px;">
+            <i class="fa-solid fa-dice"></i> Chance de prêmio: ${Math.round(config.chancePremio * 100)}%
+          </p>
+        ` : ''}
+        ${config.premioGarantido ? `
+          <p style="color: var(--success); font-size: 14px; margin-top: 4px;">
+            <i class="fa-solid fa-trophy"></i> Prêmio Lendário Garantido!
+          </p>
+        ` : ''}
+      </div>
+    `;
   }
 
   const modal = document.getElementById('comprovacaoModal');
   if (modal) modal.classList.add('active');
-
-  const linkInput = document.getElementById('comprovacaoLink');
-  if (linkInput) {
-    linkInput.addEventListener('input', atualizarPreviewLink);
-  }
-}
-
-function atualizarPreviewLink() {
-  const linkInput = document.getElementById('comprovacaoLink');
-  const previewDiv = document.getElementById('linkPreview');
-  const previewImg = document.getElementById('previewImageLink');
-
-  const url = linkInput?.value?.trim();
-
-  if (url && isValidImageUrl(url)) {
-    previewImg.src = url;
-    previewImg.onload = function () {
-      previewDiv.style.display = 'block';
-    };
-    previewImg.onerror = function () {
-      previewDiv.style.display = 'none';
-    };
-  } else {
-    previewDiv.style.display = 'none';
-  }
-}
-
-function isValidImageUrl(url) {
-  return url.match(/\.(jpeg|jpg|gif|png|webp)$/i) !== null ||
-    url.includes('imgur.com') ||
-    url.includes('prnt.sc') ||
-    url.includes('lightshot');
 }
 
 function fecharComprovacaoModal() {
@@ -972,14 +1000,6 @@ function fecharComprovacaoModal() {
 
   const form = document.getElementById('formComprovacao');
   if (form) form.reset();
-
-  const previewDiv = document.getElementById('linkPreview');
-  if (previewDiv) previewDiv.style.display = 'none';
-
-  const linkInput = document.getElementById('comprovacaoLink');
-  if (linkInput) {
-    linkInput.removeEventListener('input', atualizarPreviewLink);
-  }
 
   resgatePendente = null;
 }
@@ -994,13 +1014,6 @@ async function confirmarComprovacao(e) {
 
   if (!linkComprovacao) {
     showToast('Erro', 'O link de comprovação é obrigatório!', 'error');
-    return;
-  }
-
-  try {
-    new URL(linkComprovacao);
-  } catch {
-    showToast('Erro', 'Por favor, insira um link válido!', 'error');
     return;
   }
 
@@ -1075,8 +1088,11 @@ function fecharResultadoModal() {
   if (modal) modal.classList.remove('active');
 }
 
+// ============================================
+// ADMIN
+// ============================================
 function isAdmin() {
-  return usuarioAtual?.grupoPermissao === 'admin';
+  return usuarioAtual?.isAdmin === true;
 }
 
 function renderizarAdmin() {
@@ -1084,12 +1100,12 @@ function renderizarAdmin() {
     const content = document.getElementById('adminContent');
     if (content) {
       content.innerHTML = `
-                <div class="empty-state">
-                    <i class="fa-solid fa-lock" style="font-size: 48px; margin-bottom: 16px;"></i>
-                    <h3>Acesso Restrito</h3>
-                    <p>Apenas administradores podem acessar esta área.</p>
-                </div>
-            `;
+        <div class="empty-state">
+          <i class="fa-solid fa-lock" style="font-size: 48px; margin-bottom: 16px;"></i>
+          <h3>Acesso Restrito</h3>
+          <p>Apenas administradores podem acessar esta área.</p>
+        </div>
+      `;
     }
     return;
   }
@@ -1098,19 +1114,19 @@ function renderizarAdmin() {
   if (!container) return;
 
   container.innerHTML = `
-        <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
-            <button class="btn btn-sm ${abaAdminAtiva === 'resgates' ? 'btn-primary' : 'btn-secondary'}" onclick="mudarAbaAdmin('resgates')">
-                <i class="fa-solid fa-clipboard-check"></i> Aprovar Resgates
-            </button>
-            <button class="btn btn-sm ${abaAdminAtiva === 'premios' ? 'btn-primary' : 'btn-secondary'}" onclick="mudarAbaAdmin('premios')">
-                <i class="fa-solid fa-gift"></i> Gerenciar Prêmios
-            </button>
-            <button class="btn btn-sm ${abaAdminAtiva === 'codigos' ? 'btn-primary' : 'btn-secondary'}" onclick="mudarAbaAdmin('codigos')">
-                <i class="fa-solid fa-key"></i> Gerenciar Códigos
-            </button>
-        </div>
-        <div id="adminAbaContent"></div>
-    `;
+    <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
+      <button class="btn btn-sm ${abaAdminAtiva === 'resgates' ? 'btn-primary' : 'btn-secondary'}" onclick="mudarAbaAdmin('resgates')">
+        <i class="fa-solid fa-clipboard-check"></i> Aprovar Resgates
+      </button>
+      <button class="btn btn-sm ${abaAdminAtiva === 'premios' ? 'btn-primary' : 'btn-secondary'}" onclick="mudarAbaAdmin('premios')">
+        <i class="fa-solid fa-gift"></i> Gerenciar Prêmios
+      </button>
+      <button class="btn btn-sm ${abaAdminAtiva === 'codigos' ? 'btn-primary' : 'btn-secondary'}" onclick="mudarAbaAdmin('codigos')">
+        <i class="fa-solid fa-key"></i> Gerenciar Códigos
+      </button>
+    </div>
+    <div id="adminAbaContent"></div>
+  `;
 
   renderizarAbaAdmin();
 }
@@ -1133,6 +1149,7 @@ function renderizarAbaAdmin() {
       break;
     case 'codigos':
       content.innerHTML = renderizarAbaCodigos();
+      carregarListaCodigos();
       break;
   }
 }
@@ -1141,248 +1158,248 @@ function renderizarAbaResgates() {
   const pendentes = todosResgates.filter(r => r.status === 'pendente');
 
   return `
-        <div class="panel">
-            <div class="panel-header">
-                <div class="panel-title">
-                    <i class="fa-solid fa-clock"></i> Resgates Pendentes (${pendentes.length})
-                </div>
-            </div>
-            <div class="panel-content">
-                <div style="overflow-x: auto;">
-                    <table class="resgates-table">
-                        <thead>
-                            <tr>
-                                <th>Usuário</th>
-                                <th>Ovo</th>
-                                <th>Código</th>
-                                <th>Recompensa</th>
-                                <th>Comprovação</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${pendentes.length === 0 ? `
-                                <tr><td colspan="6" style="text-align: center; padding: 40px;">
-                                    <div class="empty-state">
-                                        <i class="fa-solid fa-check-circle" style="font-size: 48px; color: var(--success);"></i>
-                                        <h3>Tudo em ordem!</h3>
-                                        <p>Nenhum resgate pendente.</p>
-                                    </div>
-                                </td></tr>
-                            ` : pendentes.map(r => `
-                                <tr>
-                                    <td>
-                                        <div style="display: flex; align-items: center; gap: 8px;">
-                                            <div style="width: 32px; height: 32px; border-radius: 50%; overflow: hidden;">
-                                                ${getAvatarHeadHtml(r.habboName, '32px')}
-                                            </div>
-                                            <div>
-                                                <div style="font-weight: 600; font-size: 13px;">${r.forumName}</div>
-                                                <div style="font-size: 11px; color: var(--text-tertiary);">${r.habboName}</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td><span style="font-size: 20px;">${r.emoji}</span> ${r.nomeOvo}</td>
-                                    <td><code style="background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px;">${r.codigo}</code></td>
-                                    <td>
-                                        <span style="color: var(--gold-dark); font-weight: 700;"><i class="fa-solid fa-coins"></i> ${r.pontos}</span>
-                                        ${r.premio ? `<br><span style="font-size: 16px;">${r.premio.icone || '🎁'} ${r.premio.nome}</span>` : ''}
-                                    </td>
-                                    <td>
-                                        ${r.comprovante_url ? `
-                                            <a href="${r.comprovante_url}" target="_blank" class="btn btn-sm btn-primary" style="text-decoration: none;">
-                                                <i class="fa-solid fa-image"></i> Ver Print
-                                            </a>
-                                        ` : '<span style="color: var(--text-tertiary); font-size: 12px;">Sem link</span>'}
-                                    </td>
-                                    <td>
-                                        <div class="action-btns">
-                                            <button class="btn-icon btn-view" onclick="verDetalhesResgate('${r.id}')" title="Ver detalhes completos"><i class="fa-solid fa-eye"></i></button>
-                                            <button class="btn-icon btn-approve" onclick="aprovarResgate('${r.id}')" title="Aprovar"><i class="fa-solid fa-check"></i></button>
-                                            <button class="btn-icon btn-reject" onclick="rejeitarResgate('${r.id}')" title="Rejeitar"><i class="fa-solid fa-xmark"></i></button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <i class="fa-solid fa-clock"></i> Resgates Pendentes (${pendentes.length})
         </div>
-    `;
+      </div>
+      <div class="panel-content">
+        <div style="overflow-x: auto;">
+          <table class="resgates-table">
+            <thead>
+              <tr>
+                <th>Usuário</th>
+                <th>Ovo</th>
+                <th>Código</th>
+                <th>Recompensa</th>
+                <th>Comprovação</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${pendentes.length === 0 ? `
+                <tr><td colspan="6" style="text-align: center; padding: 40px;">
+                  <div class="empty-state">
+                    <i class="fa-solid fa-check-circle" style="font-size: 48px; color: var(--success);"></i>
+                    <h3>Tudo em ordem!</h3>
+                    <p>Nenhum resgate pendente.</p>
+                  </div>
+                </td></tr>
+              ` : pendentes.map(r => `
+                <tr>
+                  <td>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <div style="width: 32px; height: 32px; border-radius: 50%; overflow: hidden;">
+                        ${getAvatarHeadHtml(r.habboName, '32px')}
+                      </div>
+                      <div>
+                        <div style="font-weight: 600; font-size: 13px;">${r.forumName}</div>
+                        <div style="font-size: 11px; color: var(--text-tertiary);">${r.habboName}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span style="font-size: 20px;">${r.emoji}</span> ${r.nomeOvo}</td>
+                  <td><code style="background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px;">${r.codigo}</code></td>
+                  <td>
+                    <span style="color: var(--gold-dark); font-weight: 700;"><i class="fa-solid fa-coins"></i> ${r.pontos}</span>
+                    ${r.premio ? `<br><span style="font-size: 16px;">${r.premio.icone || '🎁'} ${r.premio.nome}</span>` : ''}
+                  </td>
+                  <td>
+                    ${r.comprovante_url ? `
+                      <a href="${r.comprovante_url}" target="_blank" class="btn btn-sm btn-primary" style="text-decoration: none;">
+                        <i class="fa-solid fa-image"></i> Ver Print
+                      </a>
+                    ` : '<span style="color: var(--text-tertiary); font-size: 12px;">Sem link</span>'}
+                  </td>
+                  <td>
+                    <div class="action-btns">
+                      <button class="btn-icon btn-view" onclick="verDetalhesResgate('${r.id}')" title="Ver detalhes completos"><i class="fa-solid fa-eye"></i></button>
+                      <button class="btn-icon btn-approve" onclick="aprovarResgate('${r.id}')" title="Aprovar"><i class="fa-solid fa-check"></i></button>
+                      <button class="btn-icon btn-reject" onclick="rejeitarResgate('${r.id}')" title="Rejeitar"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function renderizarAbaPremios() {
   const categorias = ['comum', 'incomum', 'raro', 'epico', 'lendario'];
 
   return `
-        <div style="display: grid; gap: 20px;">
-            <div class="panel" style="border: 2px solid var(--primary);">
-                <div class="panel-header" style="background: var(--gradient-primary); color: white;">
-                    <div class="panel-title" style="color: white;">
-                        <i class="fa-solid fa-plus-circle"></i> Adicionar Novo Prêmio
-                    </div>
-                </div>
-                <div class="panel-content">
-                    <form onsubmit="adicionarNovoPremio(event)" style="display: grid; gap: 16px;">
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
-                            <div class="form-group">
-                                <label class="form-label">Nome do Prêmio *</label>
-                                <input type="text" class="form-input" id="novoPremioNome" required placeholder="Ex: Badge Ouro">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Categoria *</label>
-                                <select class="form-select" id="novoPremioCategoria" required>
-                                    ${categorias.map(c => `<option value="${c}">${c.charAt(0).toUpperCase() + c.slice(1)}</option>`).join('')}
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">URL da Imagem *</label>
-                                <input type="url" class="form-input" id="novoPremioImagem" required placeholder="https://i.imgur.com/imagem.png">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Estoque Inicial *</label>
-                                <input type="number" class="form-input" id="novoPremioEstoque" required min="1" value="1">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Descrição</label>
-                            <input type="text" class="form-input" id="novoPremioDescricao" placeholder="Descrição do prêmio...">
-                        </div>
-                        <button type="submit" class="btn btn-primary" style="width: auto; justify-self: start;">
-                            <i class="fa-solid fa-plus"></i> Adicionar Prêmio
-                        </button>
-                    </form>
-                </div>
+    <div style="display: grid; gap: 20px;">
+      <div class="panel" style="border: 2px solid var(--primary);">
+        <div class="panel-header" style="background: var(--gradient-primary); color: white;">
+          <div class="panel-title" style="color: white;">
+            <i class="fa-solid fa-plus-circle"></i> Adicionar Novo Prêmio
+          </div>
+        </div>
+        <div class="panel-content">
+          <form onsubmit="adicionarNovoPremio(event)" style="display: grid; gap: 16px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+              <div class="form-group">
+                <label class="form-label">Nome do Prêmio *</label>
+                <input type="text" class="form-input" id="novoPremioNome" required placeholder="Ex: Badge Ouro">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Categoria *</label>
+                <select class="form-select" id="novoPremioCategoria" required>
+                  ${categorias.map(c => `<option value="${c}">${c.charAt(0).toUpperCase() + c.slice(1)}</option>`).join('')}
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">URL da Imagem *</label>
+                <input type="url" class="form-input" id="novoPremioImagem" required placeholder="https://i.imgur.com/imagem.png ">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Estoque Inicial *</label>
+                <input type="number" class="form-input" id="novoPremioEstoque" required min="1" value="1">
+              </div>
             </div>
+            <div class="form-group">
+              <label class="form-label">Descrição</label>
+              <input type="text" class="form-input" id="novoPremioDescricao" placeholder="Descrição do prêmio...">
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: auto; justify-self: start;">
+              <i class="fa-solid fa-plus"></i> Adicionar Prêmio
+            </button>
+          </form>
+        </div>
+      </div>
 
-            ${categorias.map(cat => `
-                <div class="panel">
-                    <div class="panel-header">
-                        <div class="panel-title">
-                            <i class="fa-solid fa-${cat === 'comum' ? 'star' : cat === 'incomum' ? 'star-half' : cat === 'raro' ? 'gem' : cat === 'epico' ? 'crown' : 'trophy'}"></i>
-                            Prêmios ${cat.charAt(0).toUpperCase() + cat.slice(1)}
-                            <span class="panel-badge">${catalogoPremios[cat]?.length || 0}</span>
-                        </div>
-                    </div>
-                    <div class="panel-content">
-                        ${!catalogoPremios[cat] || catalogoPremios[cat].length === 0 ?
+      ${categorias.map(cat => `
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <i class="fa-solid fa-${cat === 'comum' ? 'star' : cat === 'incomum' ? 'star-half' : cat === 'raro' ? 'gem' : cat === 'epico' ? 'crown' : 'trophy'}"></i>
+              Prêmios ${cat.charAt(0).toUpperCase() + cat.slice(1)}
+              <span class="panel-badge">${catalogoPremios[cat]?.length || 0}</span>
+            </div>
+          </div>
+          <div class="panel-content">
+            ${!catalogoPremios[cat] || catalogoPremios[cat].length === 0 ?
       '<p style="color: var(--text-tertiary);">Nenhum prêmio nesta categoria.</p>' :
       `<div style="display: grid; gap: 12px;">
-                                ${catalogoPremios[cat].map(p => `
-                                    <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--bg-white); border-radius: 12px; border: 1px solid var(--border-light);">
-                                        <div style="width: 60px; height: 60px; border-radius: 8px; overflow: hidden; flex-shrink: 0;">
-                                            ${p.imagem_url ? 
+                ${catalogoPremios[cat].map(p => `
+                  <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--bg-white); border-radius: 12px; border: 1px solid var(--border-light);">
+                    <div style="width: 60px; height: 60px; border-radius: 8px; overflow: hidden; flex-shrink: 0;">
+                      ${p.imagem_url ? 
           `<img src="${p.imagem_url}" style="width: 100%; height: 100%; object-fit: cover;">` : 
           `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 32px; background: var(--bg-secondary);">${p.icone || '🎁'}</div>`
         }
-                                        </div>
-                                        <div style="flex: 1;">
-                                            <h4 style="margin-bottom: 4px;">${p.nome}</h4>
-                                            <p style="font-size: 13px; color: var(--text-tertiary);">${p.descricao || 'Sem descrição'}</p>
-                                        </div>
-                                        <div style="text-align: center; min-width: 100px;">
-                                            <div style="font-size: 24px; font-weight: 800; color: ${p.estoque > 0 ? 'var(--success)' : 'var(--danger)'};">${p.estoque}</div>
-                                            <div style="font-size: 11px; color: var(--text-tertiary);">em estoque</div>
-                                        </div>
-                                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                                            <div style="display: flex; gap: 4px; justify-content: center;">
-                                                <button class="btn-icon" onclick="ajustarEstoque('${p.id}', 1)" title="Aumentar" style="background: var(--success); color: white; width: 32px; height: 32px;">
-                                                    <i class="fa-solid fa-plus"></i>
-                                                </button>
-                                                <button class="btn-icon" onclick="ajustarEstoque('${p.id}', -1)" title="Diminuir" style="background: var(--warning); color: white; width: 32px; height: 32px;">
-                                                    <i class="fa-solid fa-minus"></i>
-                                                </button>
-                                            </div>
-                                            <button class="btn btn-sm btn-danger" onclick="removerPremio('${p.id}')" style="font-size: 11px; padding: 4px 8px;">
-                                                <i class="fa-solid fa-trash"></i> Remover
-                                            </button>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                            </div>`
-    }
                     </div>
-                </div>
-            `).join('')}
+                    <div style="flex: 1;">
+                      <h4 style="margin-bottom: 4px;">${p.nome}</h4>
+                      <p style="font-size: 13px; color: var(--text-tertiary);">${p.descricao || 'Sem descrição'}</p>
+                    </div>
+                    <div style="text-align: center; min-width: 100px;">
+                      <div style="font-size: 24px; font-weight: 800; color: ${p.estoque > 0 ? 'var(--success)' : 'var(--danger)'};">${p.estoque}</div>
+                      <div style="font-size: 11px; color: var(--text-tertiary);">em estoque</div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                      <div style="display: flex; gap: 4px; justify-content: center;">
+                        <button class="btn-icon" onclick="ajustarEstoque('${p.id}', 1)" title="Aumentar" style="background: var(--success); color: white; width: 32px; height: 32px;">
+                          <i class="fa-solid fa-plus"></i>
+                        </button>
+                        <button class="btn-icon" onclick="ajustarEstoque('${p.id}', -1)" title="Diminuir" style="background: var(--warning); color: white; width: 32px; height: 32px;">
+                          <i class="fa-solid fa-minus"></i>
+                        </button>
+                      </div>
+                      <button class="btn btn-sm btn-danger" onclick="removerPremio('${p.id}')" style="font-size: 11px; padding: 4px 8px;">
+                        <i class="fa-solid fa-trash"></i> Remover
+                      </button>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>`
+    }
+          </div>
         </div>
-    `;
+      `).join('')}
+    </div>
+  `;
 }
 
 function renderizarAbaCodigos() {
   return `
-        <div style="display: grid; gap: 20px;">
-            <div class="panel">
-                <div class="panel-header">
-                    <div class="panel-title">
-                        <i class="fa-solid fa-chart-pie"></i> Estatísticas dos Códigos
-                    </div>
-                    <button class="btn btn-primary btn-sm" onclick="abrirModalNovoCodigo()">
-                        <i class="fa-solid fa-plus"></i> Gerar Códigos
-                    </button>
-                </div>
-                <div class="panel-content">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 20px;">
-                        ${Object.entries(configOvos).map(([key, ovo]) => {
+    <div style="display: grid; gap: 20px;">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <i class="fa-solid fa-chart-pie"></i> Estatísticas dos Códigos
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="abrirModalNovoCodigo()">
+            <i class="fa-solid fa-plus"></i> Gerar Códigos
+          </button>
+        </div>
+        <div class="panel-content">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 20px;">
+            ${Object.entries(configOvos).map(([key, ovo]) => {
     const stats = codigosStats[key] || { total: 0, usados: 0 };
     const disponiveis = stats.total - stats.usados;
     const percentual = stats.total > 0 ? Math.round((stats.usados / stats.total) * 100) : 0;
 
     return `
-                                <div style="background: var(--bg-white); padding: 20px; border-radius: 12px; border-left: 4px solid ${ovo.cor === 'gradient' ? '#f59e0b' : ovo.cor};">
-                                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                                        <span style="font-size: 32px;">${ovo.emoji}</span>
-                                        <div>
-                                            <h4 style="color: ${ovo.cor === 'gradient' ? '#f59e0b' : ovo.cor}; margin: 0;">${ovo.nome}</h4>
-                                            <p style="font-size: 12px; color: var(--text-tertiary); margin: 0;">${ovo.pontos} pontos</p>
-                                        </div>
-                                    </div>
-                                    <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px;">
-                                        <span>Total: <strong>${stats.total}</strong></span>
-                                        <span style="color: var(--success);">Disp.: <strong>${disponiveis}</strong></span>
-                                        <span style="color: var(--danger);">Usados: <strong>${stats.usados}</strong></span>
-                                    </div>
-                                    <div style="width: 100%; height: 6px; background: var(--bg-secondary); border-radius: 3px; overflow: hidden;">
-                                        <div style="width: ${percentual}%; height: 100%; background: ${ovo.cor === 'gradient' ? 'linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3)' : ovo.cor}; transition: width 0.3s;"></div>
-                                    </div>
-                                    <div style="font-size: 11px; color: var(--text-tertiary); text-align: center; margin-top: 4px;">${percentual}% utilizado</div>
-                                </div>
-                            `;
+                <div style="background: var(--bg-white); padding: 20px; border-radius: 12px; border-left: 4px solid ${ovo.cor === 'gradient' ? '#f59e0b' : ovo.cor};">
+                  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                    <span style="font-size: 32px;">${ovo.emoji}</span>
+                    <div>
+                      <h4 style="color: ${ovo.cor === 'gradient' ? '#f59e0b' : ovo.cor}; margin: 0;">${ovo.nome}</h4>
+                      <p style="font-size: 12px; color: var(--text-tertiary); margin: 0;">${ovo.pontos} pontos</p>
+                    </div>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px;">
+                    <span>Total: <strong>${stats.total}</strong></span>
+                    <span style="color: var(--success);">Disp.: <strong>${disponiveis}</strong></span>
+                    <span style="color: var(--danger);">Usados: <strong>${stats.usados}</strong></span>
+                  </div>
+                  <div style="width: 100%; height: 6px; background: var(--bg-secondary); border-radius: 3px; overflow: hidden;">
+                    <div style="width: ${percentual}%; height: 100%; background: ${ovo.cor === 'gradient' ? 'linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3)' : ovo.cor}; transition: width 0.3s;"></div>
+                  </div>
+                  <div style="font-size: 11px; color: var(--text-tertiary); text-align: center; margin-top: 4px;">${percentual}% utilizado</div>
+                </div>
+              `;
   }).join('')}
-                    </div>
-                </div>
-            </div>
-
-            <div class="panel">
-                <div class="panel-header">
-                    <div class="panel-title">
-                        <i class="fa-solid fa-list"></i> Lista de Códigos
-                    </div>
-                    <div style="display: flex; gap: 8px;">
-                        <select class="filter-select" id="filtroTipoCodigo" onchange="filtrarListaCodigos()" style="width: auto; min-width: 150px;">
-                            <option value="todos">Todos os tipos</option>
-                            ${Object.entries(configOvos).map(([key, ovo]) => `<option value="${key}">${ovo.nome}</option>`).join('')}
-                        </select>
-                        <select class="filter-select" id="filtroStatusCodigo" onchange="filtrarListaCodigos()" style="width: auto; min-width: 120px;">
-                            <option value="todos">Todos</option>
-                            <option value="disponivel">Disponíveis</option>
-                            <option value="usado">Usados</option>
-                        </select>
-                        <button class="btn btn-secondary btn-sm" onclick="exportarCodigos()">
-                            <i class="fa-solid fa-download"></i> Exportar
-                        </button>
-                    </div>
-                </div>
-                <div class="panel-content">
-                    <div id="listaCodigosContainer" style="max-height: 600px; overflow-y: auto;">
-                        <p style="color: var(--text-tertiary); text-align: center; padding: 40px;">
-                            <i class="fa-solid fa-spinner fa-spin"></i> Carregando códigos...
-                        </p>
-                    </div>
-                </div>
-            </div>
+          </div>
         </div>
-    `;
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <i class="fa-solid fa-list"></i> Lista de Códigos
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <select class="filter-select" id="filtroTipoCodigo" onchange="filtrarListaCodigos()" style="width: auto; min-width: 150px;">
+              <option value="todos">Todos os tipos</option>
+              ${Object.entries(configOvos).map(([key, ovo]) => `<option value="${key}">${ovo.nome}</option>`).join('')}
+            </select>
+            <select class="filter-select" id="filtroStatusCodigo" onchange="filtrarListaCodigos()" style="width: auto; min-width: 120px;">
+              <option value="todos">Todos</option>
+              <option value="disponivel">Disponíveis</option>
+              <option value="usado">Usados</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" onclick="exportarCodigos()">
+              <i class="fa-solid fa-download"></i> Exportar
+            </button>
+          </div>
+        </div>
+        <div class="panel-content">
+          <div id="listaCodigosContainer" style="max-height: 600px; overflow-y: auto;">
+            <p style="color: var(--text-tertiary); text-align: center; padding: 40px;">
+              <i class="fa-solid fa-spinner fa-spin"></i> Carregando códigos...
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 async function carregarListaCodigos() {
@@ -1427,56 +1444,56 @@ function filtrarListaCodigos() {
 
   if (codigosFiltrados.length === 0) {
     container.innerHTML = `
-            <div class="empty-state" style="padding: 40px;">
-                <i class="fa-solid fa-inbox" style="font-size: 48px; opacity: 0.3;"></i>
-                <h3>Nenhum código encontrado</h3>
-                <p>Tente ajustar os filtros ou gere novos códigos.</p>
-            </div>
-        `;
+      <div class="empty-state" style="padding: 40px;">
+        <i class="fa-solid fa-inbox" style="font-size: 48px; opacity: 0.3;"></i>
+        <h3>Nenhum código encontrado</h3>
+        <p>Tente ajustar os filtros ou gere novos códigos.</p>
+      </div>
+    `;
     return;
   }
 
   container.innerHTML = `
-        <div style="display: grid; gap: 8px;">
-            ${codigosFiltrados.map(c => {
+    <div style="display: grid; gap: 8px;">
+      ${codigosFiltrados.map(c => {
     const config = configOvos[c.tipo];
     return `
-                    <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--bg-white); border-radius: 8px; border: 1px solid var(--border-light); ${c.usado ? 'opacity: 0.6;' : ''}">
-                        <span style="font-size: 24px;">${config?.emoji || '🥚'}</span>
-                        <div style="flex: 1; min-width: 0;">
-                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                <code style="background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; font-size: 14px; font-weight: 600; letter-spacing: 1px;">${c.codigo}</code>
-                                <span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: ${config?.cor === 'gradient' ? 'linear-gradient(90deg, #ff6b6b, #feca57)' : config?.cor}; color: white; font-weight: 600;">
-                                    ${config?.nome || c.tipo}
-                                </span>
-                                ${c.usado ? '<span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--danger); color: white; font-weight: 600;"><i class="fa-solid fa-check"></i> USADO</span>' : '<span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--success); color: white; font-weight: 600;"><i class="fa-solid fa-unlock"></i> DISPONÍVEL</span>'}
-                            </div>
-                            ${c.usado ? `
-                                <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 4px;">
-                                    <i class="fa-solid fa-user"></i> Usado por: <strong>${c.usuario?.habbo_name || 'Desconhecido'}</strong> 
-                                    <span style="margin: 0 8px;">•</span>
-                                    <i class="fa-solid fa-calendar"></i> ${new Date(c.usado_em).toLocaleDateString('pt-BR')} às ${new Date(c.usado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                </div>
-                            ` : ''}
-                        </div>
-                        <div style="display: flex; gap: 4px;">
-                            <button class="btn-icon btn-view" onclick="copiarCodigo('${c.codigo}')" title="Copiar código">
-                                <i class="fa-solid fa-copy"></i>
-                            </button>
-                            ${!c.usado ? `
-                                <button class="btn-icon btn-reject" onclick="excluirCodigo('${c.id}', '${c.codigo}')" title="Excluir código">
-                                    <i class="fa-solid fa-trash"></i>
-                                </button>
-                            ` : ''}
-                        </div>
-                    </div>
-                `;
+          <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--bg-white); border-radius: 8px; border: 1px solid var(--border-light); ${c.usado ? 'opacity: 0.6;' : ''}">
+            <span style="font-size: 24px;">${config?.emoji || '🥚'}</span>
+            <div style="flex: 1; min-width: 0;">
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <code style="background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; font-size: 14px; font-weight: 600; letter-spacing: 1px;">${c.codigo}</code>
+                <span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: ${config?.cor === 'gradient' ? 'linear-gradient(90deg, #ff6b6b, #feca57)' : config?.cor}; color: white; font-weight: 600;">
+                  ${config?.nome || c.tipo}
+                </span>
+                ${c.usado ? '<span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--danger); color: white; font-weight: 600;"><i class="fa-solid fa-check"></i> USADO</span>' : '<span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--success); color: white; font-weight: 600;"><i class="fa-solid fa-unlock"></i> DISPONÍVEL</span>'}
+              </div>
+              ${c.usado ? `
+                <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 4px;">
+                  <i class="fa-solid fa-user"></i> Usado por: <strong>${c.usuario?.habbo_name || 'Desconhecido'}</strong> 
+                  <span style="margin: 0 8px;">•</span>
+                  <i class="fa-solid fa-calendar"></i> ${new Date(c.usado_em).toLocaleDateString('pt-BR')} às ${new Date(c.usado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              ` : ''}
+            </div>
+            <div style="display: flex; gap: 4px;">
+              <button class="btn-icon btn-view" onclick="copiarCodigo('${c.codigo}')" title="Copiar código">
+                <i class="fa-solid fa-copy"></i>
+              </button>
+              ${!c.usado ? `
+                <button class="btn-icon btn-reject" onclick="excluirCodigo('${c.id}', '${c.codigo}')" title="Excluir código">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `;
   }).join('')}
-        </div>
-        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-light); text-align: center; color: var(--text-tertiary); font-size: 13px;">
-            Mostrando ${codigosFiltrados.length} de ${todosCodigosLista.length} códigos
-        </div>
-    `;
+    </div>
+    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-light); text-align: center; color: var(--text-tertiary); font-size: 13px;">
+      Mostrando ${codigosFiltrados.length} de ${todosCodigosLista.length} códigos
+    </div>
+  `;
 }
 
 function copiarCodigo(codigo) {
@@ -1623,10 +1640,10 @@ async function aprovarResgate(id) {
     .update({ status: 'aprovado', aprovado_em: new Date().toISOString() })
     .eq('id', id);
 
-  await supabaseClient.rpc('adicionar_pontos_usuario', {
-    p_habbo_name: resgate.habboName,
-    p_pontos: resgate.pontos
-  });
+  await supabaseClient
+    .from('usuarios')
+    .update({ pontos: usuarioAtual.pontos + resgate.pontos })
+    .eq('forum_name', resgate.forumName);
 
   if (resgate.premio) {
     await supabaseClient.rpc('decrementar_estoque', { premio_id: resgate.premio.id });
@@ -1676,75 +1693,75 @@ function verDetalhesResgate(id) {
   if (!content) return;
 
   content.innerHTML = `
-        <div style="text-align: center; margin-bottom: 24px;">
-            <div style="font-size: 64px; margin-bottom: 12px;">${resgate.emoji}</div>
-            <div style="height: 150px; display: flex; align-items: flex-end; justify-content: center; margin-bottom: 12px;">
-                ${getAvatarFullBodyHtml(resgate.habboName, '150px')}
-            </div>
-            <h3 style="color: var(--primary);">${resgate.nomeOvo}</h3>
-            <p style="color: var(--text-tertiary); font-size: 14px;">Código: ${resgate.codigo}</p>
-        </div>
-        
-        <div style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h4 style="margin-bottom: 12px; font-size: 14px; text-transform: uppercase; color: var(--text-tertiary);">Informações</h4>
-            <div style="display: grid; gap: 8px; font-size: 14px;">
-                <div style="display: flex; justify-content: space-between;"><span>Habbo:</span> <strong>${resgate.habboName}</strong></div>
-                <div style="display: flex; justify-content: space-between;"><span>Fórum:</span> <strong>${resgate.forumName}</strong></div>
-                <div style="display: flex; justify-content: space-between;"><span>Data:</span> <strong>${new Date(resgate.data).toLocaleString('pt-BR')}</strong></div>
-                <div style="display: flex; justify-content: space-between;"><span>Status:</span> <span class="status-badge status-${resgate.status}">${resgate.status}</span></div>
-                <div style="display: flex; justify-content: space-between;"><span>Pontos:</span> <strong style="color: var(--gold-dark);">+${resgate.pontos}</strong></div>
-                ${resgate.premio ? `<div style="display: flex; justify-content: space-between;"><span>Prêmio:</span> <span>${resgate.premio.icone || '🎁'} ${resgate.premio.nome}</span></div>` : ''}
-            </div>
-        </div>
+    <div style="text-align: center; margin-bottom: 24px;">
+      <div style="font-size: 64px; margin-bottom: 12px;">${resgate.emoji}</div>
+      <div style="height: 150px; display: flex; align-items: flex-end; justify-content: center; margin-bottom: 12px;">
+        ${getAvatarFullBodyHtml(resgate.habboName, '150px')}
+      </div>
+      <h3 style="color: var(--primary);">${resgate.nomeOvo}</h3>
+      <p style="color: var(--text-tertiary); font-size: 14px;">Código: ${resgate.codigo}</p>
+    </div>
+    
+    <div style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+      <h4 style="margin-bottom: 12px; font-size: 14px; text-transform: uppercase; color: var(--text-tertiary);">Informações</h4>
+      <div style="display: grid; gap: 8px; font-size: 14px;">
+        <div style="display: flex; justify-content: space-between;"><span>Habbo:</span> <strong>${resgate.habboName}</strong></div>
+        <div style="display: flex; justify-content: space-between;"><span>Fórum:</span> <strong>${resgate.forumName}</strong></div>
+        <div style="display: flex; justify-content: space-between;"><span>Data:</span> <strong>${new Date(resgate.data).toLocaleString('pt-BR')}</strong></div>
+        <div style="display: flex; justify-content: space-between;"><span>Status:</span> <span class="status-badge status-${resgate.status}">${resgate.status}</span></div>
+        <div style="display: flex; justify-content: space-between;"><span>Pontos:</span> <strong style="color: var(--gold-dark);">+${resgate.pontos}</strong></div>
+        ${resgate.premio ? `<div style="display: flex; justify-content: space-between;"><span>Prêmio:</span> <span>${resgate.premio.icone || '🎁'} ${resgate.premio.nome}</span></div>` : ''}
+      </div>
+    </div>
 
-        ${resgate.comprovante_url ? `
-            <div style="background: linear-gradient(135deg, var(--primary-light), var(--primary)); padding: 20px; border-radius: 12px; margin-bottom: 16px; color: white;">
-                <h4 style="margin-bottom: 12px; font-size: 14px; text-transform: uppercase; opacity: 0.9;">
-                    <i class="fa-solid fa-camera"></i> Comprovação (Print)
-                </h4>
-                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; margin-bottom: 12px; word-break: break-all; font-family: monospace; font-size: 13px;">
-                    ${resgate.comprovante_url}
-                </div>
-                <div style="display: flex; gap: 8px;">
-                    <a href="${resgate.comprovante_url}" target="_blank" class="btn btn-primary" style="flex: 1; background: white; color: var(--primary); text-decoration: none;">
-                        <i class="fa-solid fa-external-link-alt"></i> Abrir Link
-                    </a>
-                    <button class="btn btn-secondary" style="flex: 1; background: rgba(255,255,255,0.3); color: white; border: none;" onclick="copiarTexto('${resgate.comprovante_url}')">
-                        <i class="fa-solid fa-copy"></i> Copiar Link
-                    </button>
-                </div>
-                <div style="margin-top: 12px; text-align: center;">
-                    <img src="${resgate.comprovante_url}" 
-                         style="max-width: 100%; max-height: 300px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.3); background: white;" 
-                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
-                         alt="Preview da comprovação">
-                    <p style="display: none; font-size: 12px; opacity: 0.8; margin-top: 8px;">
-                        <i class="fa-solid fa-exclamation-triangle"></i> Não foi possível carregar a prévia, mas o link está válido.
-                    </p>
-                </div>
-            </div>
-        ` : `
-            <div style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin-bottom: 16px; text-align: center; color: var(--text-tertiary);">
-                <i class="fa-solid fa-image" style="font-size: 32px; margin-bottom: 8px; opacity: 0.5;"></i>
-                <p>Sem link de comprovação</p>
-            </div>
-        `}
-
-        ${resgate.descricao ? `
-            <div style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h4 style="margin-bottom: 8px; font-size: 14px; text-transform: uppercase; color: var(--text-tertiary);">Descrição do Usuário</h4>
-                <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">${resgate.descricao}</p>
-            </div>
-        ` : ''}
-
-        <div style="display: flex; gap: 12px;">
-            <button class="btn btn-secondary" style="flex: 1;" onclick="fecharViewModal()">Fechar</button>
-            ${resgate.status === 'pendente' ? `
-                <button class="btn btn-success" style="flex: 1;" onclick="aprovarResgate('${resgate.id}'); fecharViewModal();"><i class="fa-solid fa-check"></i> Aprovar</button>
-                <button class="btn btn-danger" style="flex: 1;" onclick="rejeitarResgate('${resgate.id}'); fecharViewModal();"><i class="fa-solid fa-xmark"></i> Rejeitar</button>
-            ` : ''}
+    ${resgate.comprovante_url ? `
+      <div style="background: linear-gradient(135deg, var(--primary-light), var(--primary)); padding: 20px; border-radius: 12px; margin-bottom: 16px; color: white;">
+        <h4 style="margin-bottom: 12px; font-size: 14px; text-transform: uppercase; opacity: 0.9;">
+          <i class="fa-solid fa-camera"></i> Comprovação (Print)
+        </h4>
+        <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; margin-bottom: 12px; word-break: break-all; font-family: monospace; font-size: 13px;">
+          ${resgate.comprovante_url}
         </div>
-    `;
+        <div style="display: flex; gap: 8px;">
+          <a href="${resgate.comprovante_url}" target="_blank" class="btn btn-primary" style="flex: 1; background: white; color: var(--primary); text-decoration: none;">
+            <i class="fa-solid fa-external-link-alt"></i> Abrir Link
+          </a>
+          <button class="btn btn-secondary" style="flex: 1; background: rgba(255,255,255,0.3); color: white; border: none;" onclick="copiarTexto('${resgate.comprovante_url}')">
+            <i class="fa-solid fa-copy"></i> Copiar Link
+          </button>
+        </div>
+        <div style="margin-top: 12px; text-align: center;">
+          <img src="${resgate.comprovante_url}" 
+               style="max-width: 100%; max-height: 300px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.3); background: white;" 
+               onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+               alt="Preview da comprovação">
+          <p style="display: none; font-size: 12px; opacity: 0.8; margin-top: 8px;">
+            <i class="fa-solid fa-exclamation-triangle"></i> Não foi possível carregar a prévia, mas o link está válido.
+          </p>
+        </div>
+      </div>
+    ` : `
+      <div style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin-bottom: 16px; text-align: center; color: var(--text-tertiary);">
+        <i class="fa-solid fa-image" style="font-size: 32px; margin-bottom: 8px; opacity: 0.5;"></i>
+        <p>Sem link de comprovação</p>
+      </div>
+    `}
+
+    ${resgate.descricao ? `
+      <div style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+        <h4 style="margin-bottom: 8px; font-size: 14px; text-transform: uppercase; color: var(--text-tertiary);">Descrição do Usuário</h4>
+        <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">${resgate.descricao}</p>
+      </div>
+    ` : ''}
+
+    <div style="display: flex; gap: 12px;">
+      <button class="btn btn-secondary" style="flex: 1;" onclick="fecharViewModal()">Fechar</button>
+      ${resgate.status === 'pendente' ? `
+        <button class="btn btn-success" style="flex: 1;" onclick="aprovarResgate('${resgate.id}'); fecharViewModal();"><i class="fa-solid fa-check"></i> Aprovar</button>
+        <button class="btn btn-danger" style="flex: 1;" onclick="rejeitarResgate('${resgate.id}'); fecharViewModal();"><i class="fa-solid fa-xmark"></i> Rejeitar</button>
+      ` : ''}
+    </div>
+  `;
 
   document.getElementById('viewModal')?.classList.add('active');
 }
@@ -1822,6 +1839,9 @@ function showToast(title, message, type = 'success') {
   setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
+// ============================================
+// SUBSCRIPTIONS
+// ============================================
 function iniciarSubscriptions() {
   if (!supabaseClient || !usuarioAtual) return;
 
@@ -2128,6 +2148,9 @@ function tocarSomNotificacao() {
   oscillator.stop(audioContext.currentTime + 0.5);
 }
 
+// ============================================
+// INICIALIZAÇÃO
+// ============================================
 document.addEventListener('DOMContentLoaded', async () => {
   initSupabase();
   if (await inicializarUsuario()) {
